@@ -1,8 +1,8 @@
-// src/components/Dashboard.js
+// src/components/BuilderDashboard.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const Dashboard = () => {
+const BuilderDashboard = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
@@ -21,6 +21,10 @@ const Dashboard = () => {
     navigate('/login');
   };
 
+  const handleReturnToDashboard = () => {
+    navigate('/builder-dashboard');
+  };
+
   const styles = {
     container: {
       display: 'flex',
@@ -35,7 +39,7 @@ const Dashboard = () => {
     themeButton: {
       position: 'absolute',
       top: '20px',
-      right: '100px', // Сдвигаем кнопку темы вправо
+      right: '100px',
       backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
       color: '#FFFFFF',
       padding: '10px 20px',
@@ -47,13 +51,23 @@ const Dashboard = () => {
     logoutButton: {
       position: 'absolute',
       top: '20px',
-      right: '20px', // Кнопка выхода в правом верхнем углу
+      right: '20px',
       backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
       color: '#FFFFFF',
       padding: '10px 20px',
       border: 'none',
       borderRadius: '20px',
       cursor: 'pointer',
+      transition: 'background-color 0.3s, transform 0.3s',
+    },
+    returnButton: {
+      backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
+      color: '#FFFFFF',
+      padding: '10px 20px',
+      border: 'none',
+      borderRadius: '20px',
+      cursor: 'pointer',
+      marginTop: '20px',
       transition: 'background-color 0.3s, transform 0.3s',
     },
     headerContainer: {
@@ -100,21 +114,18 @@ const Dashboard = () => {
         Вийти
       </button>
       <div style={styles.headerContainer}>
-        <h2 style={styles.header}>Панель управління</h2>
+        <h2 style={styles.header}>Панель управління Будівельника</h2>
+        <button style={styles.returnButton} onClick={handleReturnToDashboard}>
+          Повернутися до панелі управління
+        </button>
       </div>
       <div style={styles.contentContainer}>
-        <button style={styles.menuButton} onClick={() => navigate('/users')}>
-          Облік працівників
-        </button>
-        <button style={styles.menuButton} onClick={() => navigate('/teams')}>
-          Формування бригад
-        </button>
         <button style={styles.menuButton} onClick={() => navigate('/work-schedules')}>
-          Формування розкладу роботи
+          Перегляд розкладу роботи
         </button>
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default BuilderDashboard;

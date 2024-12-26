@@ -26,7 +26,7 @@ const Login = () => {
       const response = await axios.post('http://localhost:5000/api/auth/login', { username, password });
       localStorage.setItem('token', response.data.token);
       alert('Авторизація успішна');
-      navigate('/dashboard'); // Перенаправлення на головну сторінку після входу
+      navigate('/auth-redirect'); // Перенаправлення на страницу перенаправления
     } catch (error) {
       setError('Авторизація не вдалася. Перевірте свої дані.');
     }

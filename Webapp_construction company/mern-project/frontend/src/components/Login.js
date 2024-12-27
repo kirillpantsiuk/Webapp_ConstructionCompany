@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -24,9 +25,11 @@ const Login = () => {
     e.preventDefault();
     try {
       const response = await axios.post('http://localhost:5000/api/auth/login', { username, password });
+      const decodedToken = jwtDecode(response.data.token);
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('role', decodedToken.role); // Сохраняем роль пользователя
       alert('Авторизація успішна');
-      navigate('/auth-redirect'); // Перенаправлення на страницу перенаправления
+      navigate('/auth-redirect'); // Перенаправление на страницу перенаправления
     } catch (error) {
       setError('Авторизація не вдалася. Перевірте свої дані.');
     }

@@ -13,6 +13,7 @@ const AuthRedirect = () => {
         const decodedToken = jwtDecode(token);
         console.log('Decoded token:', decodedToken);
         const role = decodedToken.role;
+        localStorage.setItem('role', role); // Сохраняем роль пользователя в localStorage
         if (role === 'Foreman') {
           navigate('/foreman-dashboard');
         } else if (role === 'Builder') {

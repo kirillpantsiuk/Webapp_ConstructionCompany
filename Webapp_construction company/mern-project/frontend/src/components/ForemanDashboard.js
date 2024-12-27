@@ -1,13 +1,20 @@
 // src/components/ForemanDashboard.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaSignOutAlt, FaUser, FaSun, FaMoon } from 'react-icons/fa';
 
 const ForemanDashboard = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     document.body.className = theme;
+    const token = localStorage.getItem('token');
+    if (token) {
+      const decodedToken = JSON.parse(atob(token.split('.')[1]));
+      setUser(decodedToken.username);
+    }
   }, [theme]);
 
   const toggleTheme = () => {
@@ -21,10 +28,6 @@ const ForemanDashboard = () => {
     navigate('/login');
   };
 
-  const handleReturnToDashboard = () => {
-    navigate('/foreman-dashboard');
-  };
-
   const styles = {
     container: {
       display: 'flex',
@@ -36,59 +39,37 @@ const ForemanDashboard = () => {
       padding: '20px',
       boxSizing: 'border-box',
     },
-    themeButton: {
-      position: 'absolute',
-      top: '20px',
-      right: '100px',
-      backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
-      color: '#FFFFFF',
-      padding: '10px 20px',
-      border: 'none',
-      borderRadius: '20px',
-      cursor: 'pointer',
-      transition: 'background-color 0.3s, transform 0.3s',
-    },
-    logoutButton: {
-      position: 'absolute',
-      top: '20px',
-      right: '20px',
-      backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
-      color: '#FFFFFF',
-      padding: '10px 20px',
-      border: 'none',
-      borderRadius: '20px',
-      cursor: 'pointer',
-      transition: 'background-color 0.3s, transform 0.3s',
-    },
-    returnButton: {
-      backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
-      color: '#FFFFFF',
-      padding: '10px 20px',
-      border: 'none',
-      borderRadius: '20px',
-      cursor: 'pointer',
-      marginTop: '20px',
-      transition: 'background-color 0.3s, transform 0.3s',
-    },
-    headerContainer: {
+    header: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       width: '100%',
       marginBottom: '20px',
     },
-    header: {
-      margin: 0,
-      color: theme === 'light' ? '#000000' : '#C13B00',
+    userInfo: {
+      display: 'flex',
+      alignItems: 'center',
     },
-    contentContainer: {
-      backgroundColor: theme === 'light' ? '#FFFFFF' : '#1B1D1E',
-      padding: '20px',
-      borderRadius: '8px',
-      maxWidth: '600px',
-      width: '100%',
-      textAlign: 'center',
-      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+    username: {
+      marginRight: '10px',
+      fontWeight: 'bold',
+    },
+    themeButton: {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: theme === 'light' ? '#000000' : '#FFFFFF',
+    },
+    logoutButton: {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: theme === 'light' ? '#000000' : '#FFFFFF',
+    },
+    menuContainer: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
     },
     menuButton: {
       backgroundColor: theme === 'light' ? '#000000' : '#C13B00',
@@ -104,22 +85,21 @@ const ForemanDashboard = () => {
 
   return (
     <div style={styles.container}>
-      <button style={styles.themeButton} onClick={toggleTheme}>
-        {theme === 'light' ? 'Темна тема' : 'Світла тема'}
-      </button>
-      <button style={styles.logoutButton}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#FFA500')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = theme === 'light' ? '#000000' : '#C13B00')}
-              onClick={handleLogout}>
-        Вийти
-      </button>
-      <div style={styles.headerContainer}>
-        <h2 style={styles.header}>Панель управління Прораба</h2>
-        <button style={styles.returnButton} onClick={handleReturnToDashboard}>
-          Повернутися до панелі управління
-        </button>
+      <div style={styles.header}>
+        <div>
+          {theme === 'light' ? (
+            <FaSun style={styles.themeButton} onClick={toggleTheme} />
+          ) : (
+            <FaMoon style={styles.themeButton} onClick={toggleTheme} />
+          )}
+        </div>
+        <div style={styles.userInfo}>
+          <FaUser />
+          <span style={styles.username}>{user}</span>
+          <FaSignOutAlt style={styles.logoutButton} onClick={handleLogout} />
+        </div>
       </div>
-      <div style={styles.contentContainer}>
+      <div style={styles.menuContainer}>
         <button style={styles.menuButton} onClick={() => navigate('/users')}>
           Облік працівників
         </button>

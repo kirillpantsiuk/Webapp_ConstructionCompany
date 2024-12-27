@@ -131,10 +131,11 @@ const Users = () => {
       <div style={styles.contentContainer}>
         {users.map(user => (
           <div key={user._id} style={styles.userItem}>
-            <p>Ім'я: {user.name}</p>
-            <p>Електронна пошта: {user.email}</p>
-            <p>Телефон: {user.phone}</p>
-            <p>Адреса: {user.address}</p>
+            <p>Ім'я: {user.profileId.name}</p>
+            <p>Електронна пошта: {user.profileId.email}</p>
+            <p>Телефон: {user.profileId.phone}</p>
+            <p>Адреса: {user.profileId.address}</p>
+            <p>Роль: {user.role}</p>
           </div>
         ))}
       </div>

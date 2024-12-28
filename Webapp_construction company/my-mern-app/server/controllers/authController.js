@@ -37,7 +37,7 @@ exports.login = async (req, res) => {
         const payload = { user: { id: user.id, role: user.role } };
         jwt.sign(payload, 'your_jwt_secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
-            res.json({ token });
+            res.json({ token, user: { id: user.id, role: user.role } });
         });
     } catch (err) {
         console.error(err); // Добавим логирование ошибки для отладки

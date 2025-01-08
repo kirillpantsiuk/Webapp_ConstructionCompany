@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import Alert from './Alert';
 import '../styles.css';
 
-const Login = () => {
+const Login = ({ setIsAuthenticated }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
 
   const [alert, setAlert] = useState(null);
+  const navigate = useNavigate();
 
   const { email, password } = formData;
 
@@ -21,8 +22,37 @@ const Login = () => {
     e.preventDefault();
     try {
       const res = await authService.login(formData);
-      setAlert({ type: 'success', message: 'Login successful!' });
-      localStorage.setItem('token', res.data.token);
+      if (res && res.data && res.data.token) {
+        setAlert({ type: 'success', message: 'Login successful!' });
+        localStorage.setItem('token', res.data.token);
+        setIsAuthenticated(true);
+
+        // Получаем роль пользователя
+        const userRole = res.data.user.role;
+
+        // Перенаправляем на соответствующую страницу в зависимости от роли
+        switch (userRole) {
+          case 'builder':
+            navigate('/builder-dashboard');
+            break;
+          case 'foreman':
+            navigate('/foreman-dashboard');
+            break;
+          case 'project_manager':
+            navigate('/project-manager-dashboard');
+            break;
+          case 'client':
+            navigate('/client-dashboard');
+            break;
+          case 'director':
+            navigate('/director-dashboard');
+            break;
+          default:
+            navigate('/dashboard');
+        }
+      } else {
+        setAlert({ type: 'error', message: 'Invalid response from server' });
+      }
     } catch (err) {
       setAlert({ type: 'error', message: err.response.data.msg });
     }

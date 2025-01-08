@@ -28,16 +28,17 @@ exports.register = async (req, res) => {
     const payload = {
       user: {
         id: user.id,
+        role: user.role, // Включаем роль пользователя в токен
       },
     };
 
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: 360000 },
+      { expiresIn: 360000 }, // 100 hours
       (err, token) => {
         if (err) throw err;
-        res.json({ token });
+        res.json({ token, user: { id: user.id, role: user.role } }); // Возвращаем токен и информацию о пользователе
       }
     );
   } catch (err) {
@@ -64,16 +65,17 @@ exports.login = async (req, res) => {
     const payload = {
       user: {
         id: user.id,
+        role: user.role, // Включаем роль пользователя в токен
       },
     };
 
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: 360000 },
+      { expiresIn: 360000 }, // 100 hours
       (err, token) => {
         if (err) throw err;
-        res.json({ token });
+        res.json({ token, user: { id: user.id, role: user.role } }); // Возвращаем токен и информацию о пользователе
       }
     );
   } catch (err) {

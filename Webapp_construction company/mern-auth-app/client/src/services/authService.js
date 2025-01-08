@@ -11,9 +11,13 @@ const login = (userData) => {
 };
 
 const verifyToken = (token) => {
-  return axios.post(API_URL + 'verify', null, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  return axios.post(
+    API_URL + 'verify',
+    null,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
 };
 
 const authService = {

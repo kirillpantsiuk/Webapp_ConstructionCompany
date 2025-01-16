@@ -2,10 +2,13 @@ import React from 'react';
 import '../styles.css';
 
 const BuilderDashboard = () => {
+  const username = localStorage.getItem('username');
+
   return (
     <div>
       <h2>Builder Dashboard</h2>
-      <p>Welcome to the Builder Dashboard.</p>
+      {username && <p>Welcome, {username}!</p>}
+      <p>This is the Builder Dashboard.</p>
     </div>
   );
 };

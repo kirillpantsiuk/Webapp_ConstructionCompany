@@ -1,3 +1,4 @@
+// src/components/Login.js
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
@@ -25,31 +26,36 @@ const Login = ({ setIsAuthenticated }) => {
       if (res && res.data && res.data.token) {
         setAlert({ type: 'success', message: 'Login successful!' });
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('username', res.data.user.username);
+        localStorage.setItem('role', res.data.user.role);
+        const expirationDate = new Date(new Date().getTime() + 3600000); // 1 hour
+        localStorage.setItem('expirationDate', expirationDate.toISOString());
         setIsAuthenticated(true);
 
-        // Получаем роль пользователя
         const userRole = res.data.user.role;
-
-        // Перенаправляем на соответствующую страницу в зависимости от роли
+        let path = '';
         switch (userRole) {
           case 'builder':
-            navigate('/builder-dashboard');
+            path = '/builder-dashboard';
             break;
           case 'foreman':
-            navigate('/foreman-dashboard');
+            path = '/foreman-dashboard';
             break;
           case 'project_manager':
-            navigate('/project-manager-dashboard');
+            path = '/project-manager-dashboard';
             break;
           case 'client':
-            navigate('/client-dashboard');
+            path = '/client-dashboard';
             break;
           case 'director':
-            navigate('/director-dashboard');
+            path = '/director-dashboard';
             break;
           default:
-            navigate('/dashboard');
+            path = '/dashboard';
         }
+
+        localStorage.setItem('lastPath', path);
+        navigate(path);
       } else {
         setAlert({ type: 'error', message: 'Invalid response from server' });
       }

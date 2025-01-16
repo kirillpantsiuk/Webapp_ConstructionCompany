@@ -2,10 +2,13 @@ import React from 'react';
 import '../styles.css';
 
 const ForemanDashboard = () => {
+  const username = localStorage.getItem('username');
+
   return (
     <div>
       <h2>Foreman Dashboard</h2>
-      <p>Welcome to the Foreman Dashboard.</p>
+      {username && <p>Welcome, {username}!</p>}
+      <p>This is the Foreman Dashboard.</p>
     </div>
   );
 };

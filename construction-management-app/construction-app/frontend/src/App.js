@@ -46,7 +46,10 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiInputBase-input': {
-            color: '#000' // користувацький текст чорний
+            color: '#000' // чорний текст користувача у полях
+          },
+          '& .MuiSelect-select': {
+            color: '#000' // чорний текст у випадаючому списку
           },
           '& .MuiInputLabel-root': {
             color: '#cfd3ec'
@@ -62,6 +65,17 @@ const theme = createTheme({
             '&.Mui-focused fieldset': {
               borderColor: '#31AC53'
             }
+          }
+        }
+      }
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          color: '#000', // чорний текст у пунктах списку
+          backgroundColor: '#fff',
+          '&:hover': {
+            backgroundColor: '#eef2ff'
           }
         }
       }

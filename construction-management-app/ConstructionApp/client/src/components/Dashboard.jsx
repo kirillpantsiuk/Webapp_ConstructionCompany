@@ -11,7 +11,9 @@ import {
   CssBaseline
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode'; // ← Виправлений імпорт
+import { jwtDecode } from 'jwt-decode';
+
+import ForemanDashboard from './Dashboard/roles/ForemanDashboard';
 
 const drawerWidth = 220;
 
@@ -22,7 +24,7 @@ const getRoleComponent = role => {
     case 'builder':
       return <Typography variant="h4">🛠️ Дашборд Будівельника</Typography>;
     case 'foreman':
-      return <Typography variant="h4">📅 Дашборд Бригадира</Typography>;
+      return <ForemanDashboard />;
     case 'project_manager':
       return <Typography variant="h4">📈 Дашборд Менеджера Проєкту</Typography>;
     case 'accountant':
@@ -107,9 +109,6 @@ export default function Dashboard() {
         }}
       >
         {getRoleComponent(role)}
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          Вітаємо! Тут буде індивідуальний функціонал відповідно до вашої ролі.
-        </Typography>
       </Box>
     </Box>
   );

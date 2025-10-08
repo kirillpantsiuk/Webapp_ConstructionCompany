@@ -1,0 +1,203 @@
+@startuml ааа
+
+title <size:14><b>Діаграма послідовності: Управління будівництвом</b></size>
+
+skinparam sequence {
+  ActorBackgroundColor #E6F2FF
+  ActorBorderColor #00008B
+  ParticipantBackgroundColor #E6F2FF
+  ParticipantBorderColor #00008B
+  ArrowColor #00008B
+  ArrowFontColor #000000
+  LifeLineBackgroundColor #E6F2FF
+  LifeLineBorderColor #00008B
+  NoteBackgroundColor #E6F2FF
+  NoteBorderColor #00008B
+  NoteFontColor #000000
+  FontColor #000000
+  ParticipantWidth 100
+  ParticipantMargin 5
+  FontSize 11
+}
+
+actor Менеджер as M #E6F2FF
+actor ТехКоор as TK #E6F2FF
+
+participant "Клієнт" as C #E6F2FF
+participant "Об'єкт \nБудівництва" as OB #E6F2FF
+participant "Паспортні \nДані" as PD #E6F2FF
+participant "Банківські \nДані" as BD #E6F2FF
+participant "Технічне \nЗавдання" as TZ #E6F2FF
+participant "Технічний \nПроект" as TP #E6F2FF
+participant "Креслення" as K #E6F2FF
+participant "Специфікації" as S #E6F2FF
+participant "Матеріали" as Mat #E6F2FF
+participant "Календарний \nПлан" as KP #E6F2FF
+participant "Діаграма \nГанта" as DG #E6F2FF
+participant "Огляд \nДілянки" as OD #E6F2FF
+participant "Звіт \nБудівництва" as ZB #E6F2FF
+participant "Платежі" as P #E6F2FF
+participant "Документація" as D #E6F2FF
+participant "Робітники" as R #E6F2FF
+
+' Введення даних по клієнту
+M -> C: створитиКлієнта()
+activate C
+C -> PD: створитиПаспорт()
+activate PD
+PD -> PD: перевіритиВалідність()
+PD --> C: Паспортні дані \nвведено
+deactivate PD
+C -> BD: створитиБанківськіДані()
+activate BD
+BD -> BD: перевіритиIBAN()
+BD --> C: Банківські дані \nвведено
+deactivate BD
+deactivate C
+
+' Введення даних по об'єкту будівництва
+M -> OB: зареєструватиОбєкт()
+activate OB
+OB -> OB: перевіритиПлощу()
+OB --> M: Об'єкт створено
+deactivate OB
+
+' Формування супровідної документації по договору
+M -> TZ: згенеруватиЗавдання()
+activate TZ
+TZ -> TZ: перевіритиДані()
+TZ --> M: Технічне завдання \nзгенеровано
+deactivate TZ
+
+M -> TP: створитиТехнічнийПроект()
+activate TP
+TP -> K: завантажитиКреслення()
+activate K
+K --> TP: Креслення \nзавантажено
+deactivate K
+
+TP -> S: розрахуватиМатеріали()
+activate S
+S -> Mat: перевіритиНаявність()
+activate Mat
+Mat -> Mat: перевіритиНаявність()
+Mat --> S: Наявність \nпідтверджено
+deactivate Mat
+S -> S: перевіритиМатеріали()
+S --> TP: Матеріали \nрозраховано
+deactivate S
+
+TP -> TP: перевіритиЗавдання()
+TP --> M: Технічний проект \nстворено
+deactivate TP
+
+M -> D: згенеруватиДокументацію()
+activate D
+D -> D: оновитиВміст()
+D --> M: Документацію \nзгенеровано
+deactivate D
+
+' Внесення даних попереднього огляду ділянки
+M -> TK: провестиОглядДілянки()
+activate TK
+TK -> OD: записатиОгляд()
+activate OD
+OD -> OD: перевіритиНорми()
+OD --> TK: Огляд ділянки \nзавершено
+deactivate OD
+TK -> M: Результати огляду \nділянки
+deactivate TK
+
+' Складання технічного проекту по етапам будівництва
+TK -> TP: оновитиПроект()
+activate TK
+activate TP
+TP -> K: оновитиВерсію()
+activate K
+K --> TP: Креслення \nоновлено
+deactivate K
+
+TP -> S: оновитиСпецифікацію()
+activate S
+S -> Mat: перевіритиНаявність()
+activate Mat
+Mat -> Mat: перевіритиНаявність()
+Mat --> S: Наявність \nпідтверджено
+deactivate Mat
+S -> S: оновитиСпецифікацію()
+S --> TP: Специфікації \nоновлено
+deactivate S
+
+TP -> TP: оновитиПроект()
+TP --> TK: Технічний проект \nоновлено
+deactivate TP
+deactivate TK
+
+' Утворення списку матеріалів та інструментів
+TK -> Mat: перевіритиНаявність()
+activate TK
+activate Mat
+Mat -> Mat: перевіритиНаявність()
+Mat --> TK: Наявність матеріалів \nпідтверджено
+deactivate Mat
+deactivate TK
+
+' Складання календарного плану робіт по об'єкту
+TK -> KP: створитиКалендарнийПлан()
+activate TK
+activate KP
+KP -> KP: перевіритиКолізії()
+KP -> R: підібратиРобітників()
+activate R
+R -> R: перевіритиКваліфікацію()
+R --> KP: Робітників \nпідібрано
+deactivate R
+
+KP -> DG: створитиДіаграмуГанта()
+activate DG
+DG -> DG: перевіритиТаймлайни()
+DG --> KP: Діаграма Ганта \nзгенерована
+deactivate DG
+
+KP -> KP: оновитиГрафік()
+KP --> TK: Календарний план \nстворено
+deactivate KP
+deactivate TK
+
+' Підбір робітників для виконання робіт по об'єкту
+TK -> R: підібратиРобітників()
+activate TK
+activate R
+R -> R: перевіритиКваліфікацію()
+R --> TK: Робітників \nпідібрано
+deactivate R
+deactivate TK
+
+' Ведення звітної документації по ходу будівництва
+M -> ZB: вестиЗвітність()
+activate M
+activate ZB
+ZB -> ZB: перевіритиКонсистентність()
+ZB --> M: Звіт згенеровано
+deactivate ZB
+deactivate M
+
+' Запис платежів по об'єкту
+M -> P: записатиПлатіж()
+activate M
+activate P
+P -> P: перевіритиСума()
+P --> M: Платіж записано
+deactivate P
+deactivate M
+
+' Фіксувати стан сплати за етап/проект
+M -> P: підтвердитиПлатіж()
+activate M
+activate P
+P -> P: підтвердитиПлатіж()
+P --> M: Стан сплати \nзафіксовано
+deactivate P
+deactivate M
+
+@enduml

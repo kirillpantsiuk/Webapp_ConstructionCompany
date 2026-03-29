@@ -1,0 +1,12 @@
+import React from "react";
+import Login from "./pages/Login"; // імпорт нашої форми
+
+function App() {
+  return (
+    <div className="App">
+      <Login />
+    </div>
+  );
+}
+
+export default App;

@@ -1,22 +1,30 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const User = require("./models/User");
+const mongoose = require('mongoose');
+const connectDB = require('./config/db');
+const User = require('./models/User');
 
-mongoose.connect("mongodb://127.0.0.1/ConstructionApp");
+connectDB();
 
-async function createAdmin() {
-  const hashedPassword = await bcrypt.hash("SuperAdmin123", 10);
-  const admin = new User({
-    id: "superadmin-uuid",
-    login: "superadmin",
-    password: hashedPassword,
-    role: "superadmin",
-    email: "admin@system.com",
-    active: true
-  });
-  await admin.save();
-  console.log("Super Admin created");
-  mongoose.disconnect();
-}
+const createAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ login: 'superadmin' });
+    if (adminExists) {
+      console.log('Super Admin already exists');
+      process.exit();
+    }
+
+    const admin = new User({
+      login: 'superadmin',
+      password: 'SuperSecret123',
+      role: 'SuperAdmin',
+      email: 'admin@example.com'
+    });
+    await admin.save();
+    console.log('✅ Super Admin created');
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
 
 createAdmin();

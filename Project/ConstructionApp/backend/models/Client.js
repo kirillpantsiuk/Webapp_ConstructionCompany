@@ -1,11 +1,12 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
-const ClientSchema = new mongoose.Schema({
-  id: { type: String, required: true },
+const clientSchema = new mongoose.Schema({
+  id: { type: String, default: uuidv4 },
   name: { type: String, required: true },
-  phone: { type: String },
-  email: { type: String },
+  phone: { type: String, required: true },
+  email: { type: String, required: true },
   registrationDate: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model("Client", ClientSchema);
+module.exports = mongoose.model('Client', clientSchema);

@@ -1,10 +1,11 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
-const GanttChartSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  tasks: [{ type: String }],
+const ganttChartSchema = new mongoose.Schema({
+  id: { type: String, default: uuidv4 },
+  tasks: { type: [String] },
   timelines: { type: Map, of: String },
-  scheduleId: { type: String, ref: "Schedule" }
+  scheduleId: { type: String, required: true }
 });
 
-module.exports = mongoose.model("GanttChart", GanttChartSchema);
+module.exports = mongoose.model('GanttChart', ganttChartSchema);

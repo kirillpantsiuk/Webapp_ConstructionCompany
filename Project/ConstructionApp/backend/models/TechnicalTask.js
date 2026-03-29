@@ -1,11 +1,12 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
-const TechnicalTaskSchema = new mongoose.Schema({
-  id: { type: String, required: true },
+const technicalTaskSchema = new mongoose.Schema({
+  id: { type: String, default: uuidv4 },
   description: { type: String },
   requirements: { type: String },
   createdAt: { type: Date, default: Date.now },
-  objectId: { type: String, ref: "ConstructionObject" }
+  objectId: { type: String, required: true }
 });
 
-module.exports = mongoose.model("TechnicalTask", TechnicalTaskSchema);
+module.exports = mongoose.model('TechnicalTask', technicalTaskSchema);

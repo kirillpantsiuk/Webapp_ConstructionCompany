@@ -1,13 +1,14 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
-const PaymentSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  amount: { type: Number },
-  paymentDate: { type: Date },
+const paymentSchema = new mongoose.Schema({
+  id: { type: String, default: uuidv4 },
+  amount: { type: Number, required: true },
+  paymentDate: { type: Date, default: Date.now },
   status: { type: String },
   accountNumber: { type: String },
-  clientId: { type: String, ref: "Client" },
-  objectId: { type: String, ref: "ConstructionObject" }
+  clientId: { type: String, required: true },
+  objectId: { type: String, required: true }
 });
 
-module.exports = mongoose.model("Payment", PaymentSchema);
+module.exports = mongoose.model('Payment', paymentSchema);

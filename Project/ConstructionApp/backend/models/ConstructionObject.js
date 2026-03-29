@@ -1,12 +1,13 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
-const ConstructionObjectSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  address: { type: String },
+const constructionObjectSchema = new mongoose.Schema({
+  id: { type: String, default: uuidv4 },
+  address: { type: String, required: true },
   coordinates: { type: String },
   area: { type: Number },
   description: { type: String },
-  clientId: { type: String, ref: "Client" }
+  clientId: { type: String, required: true }
 });
 
-module.exports = mongoose.model("ConstructionObject", ConstructionObjectSchema);
+module.exports = mongoose.model('ConstructionObject', constructionObjectSchema);

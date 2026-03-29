@@ -1,80 +1,97 @@
-import React, { useState } from "react";
-import "./Login.css";
-import { Alert, AlertTitle } from "@mui/material";
+import React, { useState } from 'react';
+import axios from 'axios';
+import Notification from '../components/Notification'; // імпорт нашого компонента
 
-function Login() {
-  const [formData, setFormData] = useState({ email: "", password: "" });
-  const [alert, setAlert] = useState({ type: "", message: "" });
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+const Login = () => {
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+  const [notification, setNotification] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      const res = await axios.post('http://localhost:5000/api/auth/login', {
+        login,
+        password
       });
-      const data = await res.json();
-
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        setAlert({ type: "success", message: "Login successful!" });
-        // тут можна зробити redirect на dashboard
-      } else {
-        setAlert({ type: "error", message: data.message || "Login failed" });
-      }
-    } catch (err) {
-      console.error(err);
-      setAlert({ type: "error", message: "Server error" });
+      setNotification({
+        type: 'success',
+        message: `Welcome ${res.data.user.role}: ${res.data.user.login}`
+      });
+      console.log("Login successful:", res.data);
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Invalid login or password'
+      });
+      console.error("Login error:", error.response?.data || error.message);
     }
   };
 
   return (
-    <div className="login-container">
-      <h2>Welcome Back 👋</h2>
-      <p>Sign in to start managing your projects.</p>
-
-      {/* Повідомлення */}
-      {alert.message && (
-        <Alert severity={alert.type} style={{ marginBottom: "15px" }}>
-          <AlertTitle>
-            {alert.type === "success" ? "Success" : "Error"}
-          </AlertTitle>
-          {alert.message}
-        </Alert>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <label>Email</label>
-        <input
-          type="email"
-          name="email"
-          placeholder="example@email.com"
-          value={formData.email}
-          onChange={handleChange}
-          required
+    <div style={styles.container}>
+      <h2 style={styles.title}>Welcome Back 👋</h2>
+      <p style={styles.subtitle}>
+        Today is a new day. It’s your day. You shape it.<br/>
+        Sign in to start managing your projects.
+      </p>
+      <form onSubmit={handleSubmit} style={styles.form}>
+        <label style={styles.label}>Login</label>
+        <input 
+          type="text" 
+          placeholder="superadmin" 
+          value={login} 
+          onChange={(e) => setLogin(e.target.value)} 
+          style={styles.input}
         />
 
-        <label>Password</label>
-        <input
-          type="password"
-          name="password"
-          placeholder="At least 8 characters"
-          value={formData.password}
-          onChange={handleChange}
-          required
+        <label style={styles.label}>Password</label>
+        <input 
+          type="password" 
+          placeholder="At least 8 characters" 
+          value={password} 
+          onChange={(e) => setPassword(e.target.value)} 
+          style={styles.input}
         />
 
-        <button type="submit">Sign In</button>
+        <button type="submit" style={styles.button}>Sign in</button>
+        <p style={styles.forgot}>Forgot Password?</p>
       </form>
-      <div className="divider">Or</div>
-      <p className="forgot">Forgot Password?</p>
+
+      {/* Виводимо сповіщення */}
+      {notification && (
+        <Notification type={notification.type} message={notification.message} />
+      )}
     </div>
   );
-}
+};
+
+const styles = {
+  container: {
+    maxWidth: '400px',
+    margin: '100px auto',
+    padding: '30px',
+    textAlign: 'center',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    backgroundColor: '#fff',
+    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+  },
+  title: { marginBottom: '10px' },
+  subtitle: { marginBottom: '20px', color: '#555', fontSize: '14px' },
+  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
+  label: { textAlign: 'left', fontSize: '14px', color: '#333' },
+  input: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc' },
+  button: {
+    padding: '12px',
+    backgroundColor: '#000',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  },
+  forgot: { marginTop: '10px', fontSize: '14px', color: '#555', cursor: 'pointer' }
+};
 
 export default Login;

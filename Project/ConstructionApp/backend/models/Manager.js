@@ -1,9 +1,8 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const ManagerSchema = new mongoose.Schema({
-  id: { type: String, required: true },
+const managerSchema = new mongoose.Schema({
   department: { type: String },
   phone: { type: String }
-});
+}, { discriminatorKey: 'role' });
 
-module.exports = mongoose.model("Manager", ManagerSchema);
+module.exports = mongoose.model('Manager', managerSchema);

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import './LoginForm.css';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
 
 const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [alert, setAlert] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,13 +20,13 @@ const LoginForm = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert(data.message); // ✅ повідомлення про успішну авторизацію
+        setAlert({ type: 'success', message: data.message });
       } else {
-        alert(data.message); // ❌ повідомлення про помилку
+        setAlert({ type: 'error', message: data.message });
       }
     } catch (error) {
       console.error('Login error:', error);
-      alert('❌ Server error');
+      setAlert({ type: 'error', message: '❌ Server error' });
     }
   };
 
@@ -34,6 +37,13 @@ const LoginForm = () => {
         Today is a new day. It's your day. You shape it.<br />
         Sign in to start managing your projects.
       </p>
+
+      {alert && (
+        <Alert severity={alert.type} style={{ marginBottom: '20px' }}>
+          <AlertTitle>{alert.type === 'success' ? 'Success' : 'Error'}</AlertTitle>
+          {alert.message}
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit} className="login-form">
         <label>Email</label>

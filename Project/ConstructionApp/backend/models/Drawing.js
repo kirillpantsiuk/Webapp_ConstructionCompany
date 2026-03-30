@@ -1,12 +1,8 @@
-const mongoose = require('mongoose');
-const { v4: uuidv4 } = require('uuid');
-
 const drawingSchema = new mongoose.Schema({
   id: { type: String, default: uuidv4 },
-  file: { type: String },
+  file: String,
   uploadDate: { type: Date, default: Date.now },
-  version: { type: String },
-  projectId: { type: String, required: true }
+  version: String,
+  projectId: { type: String, ref: 'TechnicalProject' },
 });
-
 module.exports = mongoose.model('Drawing', drawingSchema);

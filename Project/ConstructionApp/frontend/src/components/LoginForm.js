@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import './LoginForm.css';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
+import { useNavigate } from 'react-router-dom';
 
 const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [alert, setAlert] = useState(null);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,6 +23,9 @@ const LoginForm = () => {
 
       if (response.ok) {
         setAlert({ type: 'success', message: data.message });
+        setTimeout(() => {
+          navigate('/dashboard'); // ✅ редирект на Dashboard
+        }, 1500);
       } else {
         setAlert({ type: 'error', message: data.message });
       }

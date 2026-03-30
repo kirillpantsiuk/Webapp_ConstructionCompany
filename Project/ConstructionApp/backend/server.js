@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const initSuperAdmin = require('./config/initSuperAdmin');
 const superAdminRoutes = require('./routes/superAdminRoutes');
+const userRoutes = require('./routes/userRoutes'); // ✅ новий маршрут
 const cors = require('cors');
 
 dotenv.config();
@@ -23,5 +24,8 @@ app.get('/', (req, res) => {
 // Маршрути для супер адміна
 app.use('/api/superadmin', superAdminRoutes);
 
+// Маршрути для користувачів (тільки супер адмін може створювати)
+app.use('/api/users', userRoutes);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

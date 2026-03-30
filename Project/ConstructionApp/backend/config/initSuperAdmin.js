@@ -7,6 +7,7 @@ const initSuperAdmin = async () => {
       const superAdmin = new SuperAdmin({
         email: 'superadmin@example.com',
         password: 'SuperStrongPassword123', // буде захешовано автоматично
+        role: 'SuperAdmin' // ✅ додано
       });
       await superAdmin.save();
       console.log('✅ Super Admin created automatically');

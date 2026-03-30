@@ -22,9 +22,14 @@ const LoginForm = () => {
       const data = await response.json();
 
       if (response.ok) {
+        // ✅ Зберігаємо токен і роль у Local Storage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', 'SuperAdmin');
+        localStorage.setItem('userEmail', email);
+
         setAlert({ type: 'success', message: data.message });
         setTimeout(() => {
-          navigate('/dashboard'); // ✅ редирект на Dashboard
+          navigate('/dashboard'); // редирект на Dashboard
         }, 1500);
       } else {
         setAlert({ type: 'error', message: data.message });

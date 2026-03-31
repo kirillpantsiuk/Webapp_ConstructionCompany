@@ -38,8 +38,8 @@ const loginUser = async (req, res) => {
 
 /**
  * @route   POST /api/users/register
- * @desc    Реєстрація нового користувача (Менеджера або ТехКоординатора)
- * @access  Private (Тільки для SuperAdmin)
+ * @desc    Реєстрація нового користувача з валідацією (Тільки для SuperAdmin)
+ * @access  Private
  */
 const registerUser = async (req, res) => {
   try {
@@ -48,9 +48,35 @@ const registerUser = async (req, res) => {
       specialization, experience, department, phone 
     } = req.body;
 
+    // 1. ВАЛІДАЦІЯ ПАРОЛЯ
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ 
+        message: 'Пароль занадто слабкий. Має бути мінімум 8 символів, одна велика літера, одна цифра та спецсимвол (!@#$%^&*)' 
+      });
+    }
+
+    // 2. ВАЛІДАЦІЯ ТЕЛЕФОНУ ТА ДОСВІДУ
+    if (role === 'Manager') {
+      const phoneRegex = /^\+\d{10,15}$/;
+      if (!phone || !phoneRegex.test(phone)) {
+        return res.status(400).json({ 
+          message: 'Для менеджера номер телефону обов’язковий у форматі +380...' 
+        });
+      }
+    }
+
+    if (role === 'TechnicalCoordinator') {
+      if (experience === undefined || Number(experience) < 0) {
+        return res.status(400).json({ 
+          message: 'Досвід роботи не може бути від’ємним числом' 
+        });
+      }
+    }
+
     const userExists = await User.findOne({ $or: [{ email }, { login }] });
     if (userExists) {
-      return res.status(400).json({ message: 'Користувач вже існує' });
+      return res.status(400).json({ message: 'Користувач з таким Email або Логіном вже існує' });
     }
 
     const user = await User.create({
@@ -99,12 +125,10 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ message: 'Користувача не знайдено' });
     }
 
-    // Захист від самовидалення (опціонально, але безпечно)
     if (req.user && req.user._id.toString() === req.params.id.toString()) {
       return res.status(400).json({ message: 'Ви не можете видалити самого себе' });
     }
 
-    // Захист від видалення останнього SuperAdmin (логіка за замовчуванням)
     if (user.role === 'SuperAdmin') {
       const adminCount = await User.countDocuments({ role: 'SuperAdmin' });
       if (adminCount <= 1) {
@@ -121,7 +145,7 @@ const deleteUser = async (req, res) => {
 
 /**
  * @route   PUT /api/users/:id
- * @desc    Оновлення даних користувача
+ * @desc    Оновлення даних користувача з перевіркою валідності
  * @access  Private (Admin)
  */
 const updateUser = async (req, res) => {
@@ -129,22 +153,48 @@ const updateUser = async (req, res) => {
     const user = await User.findById(req.params.id);
 
     if (user) {
+      // Валідація телефону
+      if (req.body.role === 'Manager' || (user.role === 'Manager' && req.body.phone)) {
+        const phoneToTest = req.body.phone || user.phone;
+        const phoneRegex = /^\+\d{10,15}$/;
+        if (!phoneRegex.test(phoneToTest)) {
+          return res.status(400).json({ message: 'Некоректний формат телефону (+380...)' });
+        }
+      }
+
+      // Валідація досвіду
+      if (req.body.role === 'TechnicalCoordinator' || (user.role === 'TechnicalCoordinator' && req.body.experience !== undefined)) {
+        const expToTest = req.body.experience !== undefined ? req.body.experience : user.experience;
+        if (Number(expToTest) < 0) {
+          return res.status(400).json({ message: 'Досвід роботи не може бути від’ємним числом' });
+        }
+      }
+
+      // Валідація нового пароля
+      if (req.body.password) {
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+        if (!passwordRegex.test(req.body.password)) {
+          return res.status(400).json({ message: 'Новий пароль не відповідає вимогам безпеки' });
+        }
+        user.password = req.body.password;
+      }
+
       user.login = req.body.login || user.login;
       user.email = req.body.email || user.email;
       user.role = req.body.role || user.role;
       
-      // Оновлення специфічних полів залежно від ролі
       if (user.role === 'Manager') {
         user.department = req.body.department || user.department;
         user.phone = req.body.phone || user.phone;
+        // Очищення полів іншої ролі
+        user.specialization = undefined;
+        user.experience = undefined;
       } else if (user.role === 'TechnicalCoordinator') {
         user.specialization = req.body.specialization || user.specialization;
-        user.experience = req.body.experience || user.experience;
-      }
-
-      // Якщо в тілі запиту є новий пароль — оновлюємо (він захешується в моделі)
-      if (req.body.password) {
-        user.password = req.body.password;
+        user.experience = req.body.experience !== undefined ? req.body.experience : user.experience;
+        // Очищення полів іншої ролі
+        user.department = undefined;
+        user.phone = undefined;
       }
 
       const updatedUser = await user.save();
@@ -168,22 +218,26 @@ const updateUser = async (req, res) => {
  * @access  Private
  */
 const getUserProfile = async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (user) {
-    res.json({
-      _id: user._id,
-      login: user.login,
-      email: user.email,
-      role: user.role,
-      details: {
-        department: user.department,
-        phone: user.phone,
-        specialization: user.specialization,
-        experience: user.experience
-      }
-    });
-  } else {
-    res.status(404).json({ message: 'Користувача не знайдено' });
+  try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      res.json({
+        _id: user._id,
+        login: user.login,
+        email: user.email,
+        role: user.role,
+        details: {
+          department: user.department,
+          phone: user.phone,
+          specialization: user.specialization,
+          experience: user.experience
+        }
+      });
+    } else {
+      res.status(404).json({ message: 'Користувача не знайдено' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Помилка сервера', error: error.message });
   }
 };
 

@@ -3,7 +3,7 @@ import styled, { createGlobalStyle } from 'styled-components';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, UserPlus, X } from 'lucide-react';
-import { Snackbar, Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Snackbar, Alert, Button, Dialog, DialogActions, DialogContent } from '@mui/material';
 
 const GlobalStyle = createGlobalStyle`
   body, html {
@@ -200,7 +200,7 @@ const AdminRegisterPage = () => {
   });
   
   const [notify, setNotify] = useState({ open: false, message: '', severity: 'success' });
-  const [openLogoutDialog, setOpenLogoutDialog] = useState(false); // Стан для діалогу виходу
+  const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
 
   const navigate = useNavigate();
 
@@ -238,8 +238,51 @@ const AdminRegisterPage = () => {
     setNotify({ ...notify, open: false });
   };
 
+  const validateData = () => {
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    const phoneRegex = /^\+\d{10,15}$/;
+
+    // Валідація пароля: тільки при реєстрації або якщо поле не порожнє при редагуванні
+    if (!isEdit || (isEdit && formData.password)) {
+      if (!passwordRegex.test(formData.password)) {
+        setNotify({ 
+          open: true, 
+          message: 'Пароль: мін. 8 симв, велика літера, цифра та спецсимвол (!@#$%^&*)', 
+          severity: 'error' 
+        });
+        return false;
+      }
+    }
+
+    if (formData.role === 'Manager') {
+      if (!phoneRegex.test(formData.phone)) {
+        setNotify({ 
+          open: true, 
+          message: 'Номер телефону має бути у форматі +380...', 
+          severity: 'error' 
+        });
+        return false;
+      }
+    }
+
+    if (formData.role === 'TechnicalCoordinator') {
+      if (Number(formData.experience) < 0) {
+        setNotify({ 
+          open: true, 
+          message: 'Досвід роботи не може бути від’ємним числом', 
+          severity: 'error' 
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateData()) return;
+
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
@@ -283,7 +326,6 @@ const AdminRegisterPage = () => {
           <AddUserBtn onClick={() => setShowModal(true)}>
             <UserPlus size={18} /> Додати користувача
           </AddUserBtn>
-          {/* Замість прямого Logout відкриваємо Dialog */}
           <LogoutIconBtn onClick={() => setOpenLogoutDialog(true)} title="Вийти">
             <LogOut size={20} />
           </LogoutIconBtn>
@@ -324,7 +366,6 @@ const AdminRegisterPage = () => {
         </StyledTable>
       </TableContainer>
 
-      {/* МОДАЛЬНЕ ВІКНО ФОРМИ */}
       {showModal && (
         <ModalOverlay onClick={(e) => e.target === e.currentTarget && resetForm()}>
           <FormCard>
@@ -336,8 +377,8 @@ const AdminRegisterPage = () => {
                 <InputGroup><label>Email</label><Input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></InputGroup>
               </div>
               <InputGroup>
-                <label>Пароль {isEdit && '(залиште порожнім для збереження)'}</label>
-                <Input type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!isEdit} />
+                <label>Пароль {isEdit && '(залиште порожнім, щоб не змінювати)'}</label>
+                <Input type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!isEdit} placeholder={isEdit ? "••••••••" : "Мінімально 8 символів"} />
               </InputGroup>
               <InputGroup>
                 <label>Роль користувача</label>
@@ -349,12 +390,12 @@ const AdminRegisterPage = () => {
               {formData.role === 'Manager' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                   <InputGroup><label>Відділ</label><Input value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} /></InputGroup>
-                  <InputGroup><label>Телефон</label><Input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} /></InputGroup>
+                  <InputGroup><label>Телефон</label><Input value={formData.phone} placeholder="+380XXXXXXXXX" onChange={(e) => setFormData({...formData, phone: e.target.value})} /></InputGroup>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                   <InputGroup><label>Спеціалізація</label><Input value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} /></InputGroup>
-                  <InputGroup><label>Досвід (роки)</label><Input type="number" value={formData.experience} onChange={(e) => setFormData({...formData, experience: e.target.value})} /></InputGroup>
+                  <InputGroup><label>Досвід (роки)</label><Input type="number" min="0" value={formData.experience} onChange={(e) => setFormData({...formData, experience: e.target.value})} /></InputGroup>
                 </div>
               )}
               <div style={{ marginTop: '25px', display: 'flex', gap: '12px' }}>
@@ -366,36 +407,59 @@ const AdminRegisterPage = () => {
         </ModalOverlay>
       )}
 
-      {/* ДІАЛОГ ПІДТВЕРДЖЕННЯ ВИХОДУ З ВИКОРИСТАННЯМ MUI ALERT */}
-      <Dialog
-        open={openLogoutDialog}
-        onClose={() => setOpenLogoutDialog(false)}
-        PaperProps={{
-          style: { borderRadius: '20px', backgroundColor: '#1e293b', color: 'white', padding: '10px' }
-        }}
-      >
-        <DialogContent>
-          <Alert 
-            severity="warning" 
-            variant="filled"
-            style={{ borderRadius: '15px', fontWeight: '600' }}
-            action={
-              <Button color="inherit" size="small" onClick={confirmLogout}>
-                ТАК, ВИЙТИ
-              </Button>
-            }
-          >
-            Ви впевнені, що хочете вийти з системи?
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenLogoutDialog(false)} style={{ color: '#94a3b8' }}>
-            Скасувати
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* СНЕКБАР СПОВІЩЕНЬ */}
+    <Dialog
+  open={openLogoutDialog}
+  onClose={() => setOpenLogoutDialog(false)}
+  PaperProps={{
+    style: { 
+      borderRadius: '20px', 
+      backgroundColor: '#1e293b', 
+      color: 'white', 
+      padding: '20px', // Трохи збільшив відступ для балансу
+      minWidth: '350px' 
+    }
+  }}
+>
+  <DialogContent style={{ padding: '0' }}>
+    <Alert 
+      severity="warning" 
+      variant="filled"
+      style={{ 
+        borderRadius: '15px', 
+        fontWeight: '600',
+        display: 'flex',
+        alignItems: 'center'
+      }}
+      action={
+        <Button 
+          color="inherit" 
+          size="small" 
+          onClick={confirmLogout}
+          style={{ fontWeight: 'bold' }}
+        >
+          ТАК, ВИЙТИ
+        </Button>
+      }
+    >
+      Ви впевнені, що хочете вийти з системи?
+    </Alert>
+  </DialogContent>
+  
+  {/* Кнопка скасування тепер розміщена по центру під алером */}
+  <DialogActions style={{ justifyContent: 'center', marginTop: '15px', padding: '0' }}>
+    <Button 
+      onClick={() => setOpenLogoutDialog(false)} 
+      style={{ 
+        color: '#94a3b8', 
+        textTransform: 'none', 
+        fontSize: '14px',
+        textDecoration: 'underline' 
+      }}
+    >
+      Ні, залишитися в системі (Скасувати)
+    </Button>
+  </DialogActions>
+</Dialog>
       <Snackbar 
         open={notify.open} 
         autoHideDuration={4000} 

@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { Snackbar, Alert } from '@mui/material';
 
-// --- ГЛОБАЛЬНІ СТИЛІ ---
 const GlobalStyle = createGlobalStyle`
   body, html {
     margin: 0;
@@ -18,8 +18,6 @@ const GlobalStyle = createGlobalStyle`
   }
 `;
 
-// --- STYLED COMPONENTS ---
-
 const FullScreenWrapper = styled.div`
   height: 100vh;
   width: 100vw;
@@ -32,7 +30,7 @@ const FullScreenWrapper = styled.div`
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
   background-position: center center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 `;
 
 const GlassFormCard = styled.div`
@@ -83,7 +81,6 @@ const InputField = styled.input`
   color: white;
   font-size: 16px;
   width: 100%;
-  
   &:focus {
     outline: none;
     border-color: #38bdf8;
@@ -102,53 +99,54 @@ const SignInButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
-
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(2, 132, 199, 0.3);
   }
-
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
 `;
 
-// --- КОМПОНЕНТ СТОРІНКИ ---
-
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [notify, setNotify] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
+
+  const handleCloseNotify = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setNotify({ ...notify, open: false });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      // Відправляємо запит на ваш бекенд
-      const response = await axios.post('http://localhost:5000/api/users/login', {
-        email,
-        password
-      });
-
-      // Якщо успішно, зберігаємо дані користувача та токен
-      console.log('Успішний вхід:', response.data);
+      const response = await axios.post('http://localhost:5000/api/users/login', { email, password });
       localStorage.setItem('userInfo', JSON.stringify(response.data));
       
-      // Логіка перенаправлення
-      if (response.data.role === 'SuperAdmin') {
-        alert('Вітаємо, Адмін! Перехід до панелі керування.');
-        navigate('/admin/register'); 
-      } else {
-        alert(`Вітаємо, ${response.data.login}!`);
-        navigate('/dashboard');
-      }
+      const welcomeMsg = response.data.role === 'SuperAdmin' 
+        ? 'Вітаємо, Адмін! Перехід до панелі керування.' 
+        : `Вітаємо, ${response.data.login}!`;
 
+      setNotify({ open: true, message: welcomeMsg, severity: 'success' });
+
+      setTimeout(() => {
+        if (response.data.role === 'SuperAdmin') {
+          navigate('/admin/register');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 1500);
     } catch (error) {
-      console.error('Помилка авторизації:', error);
-      alert(error.response?.data?.message || 'Невірний email або пароль');
+      setNotify({ 
+        open: true, 
+        message: error.response?.data?.message || 'Невірний email або пароль', 
+        severity: 'error' 
+      });
     } finally {
       setLoading(false);
     }
@@ -161,7 +159,6 @@ const LoginPage = () => {
         <GlassFormCard>
           <Title>Вхід у систему 👋</Title>
           <Subtitle>ConstructionCRM. Керуйте етапами будівництва в один клік.</Subtitle>
-          
           <form onSubmit={handleSubmit}>
             <InputGroup>
               <Label>Email</Label>
@@ -173,7 +170,6 @@ const LoginPage = () => {
                 required
               />
             </InputGroup>
-
             <InputGroup>
               <Label>Пароль</Label>
               <InputField 
@@ -184,13 +180,27 @@ const LoginPage = () => {
                 required
               />
             </InputGroup>
-
             <SignInButton type="submit" disabled={loading}>
               {loading ? 'Обробка...' : 'Авторизуватися'}
             </SignInButton>
           </form>
         </GlassFormCard>
       </FullScreenWrapper>
+      <Snackbar 
+        open={notify.open} 
+        autoHideDuration={3000} 
+        onClose={handleCloseNotify}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotify} 
+          severity={notify.severity} 
+          variant="filled" 
+          sx={{ width: '100%', borderRadius: '12px', fontWeight: '500' }}
+        >
+          {notify.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

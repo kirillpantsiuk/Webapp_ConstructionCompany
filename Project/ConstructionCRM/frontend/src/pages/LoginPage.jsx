@@ -128,19 +128,19 @@ const LoginPage = () => {
       const response = await axios.post('http://localhost:5000/api/users/login', { email, password });
       localStorage.setItem('userInfo', JSON.stringify(response.data));
       
-      const welcomeMsg = response.data.role === 'SuperAdmin' 
-        ? 'Вітаємо, Адмін! Перехід до панелі керування.' 
-        : `Вітаємо, ${response.data.login}!`;
+      const { role, login } = response.data;
+      let welcomeMsg = `Вітаємо, ${login}!`;
+      if (role === 'SuperAdmin') welcomeMsg = 'Вітаємо, Адмін! Перехід до панелі керування.';
 
       setNotify({ open: true, message: welcomeMsg, severity: 'success' });
 
       setTimeout(() => {
-        if (response.data.role === 'SuperAdmin') {
-          navigate('/admin/register');
-        } else {
-          navigate('/dashboard');
-        }
+        if (role === 'SuperAdmin') navigate('/admin/register');
+        else if (role === 'Manager') navigate('/manager/dashboard');
+        else if (role === 'TechnicalCoordinator') navigate('/technical/dashboard');
+        else navigate('/login');
       }, 1500);
+
     } catch (error) {
       setNotify({ 
         open: true, 
@@ -192,12 +192,7 @@ const LoginPage = () => {
         onClose={handleCloseNotify}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseNotify} 
-          severity={notify.severity} 
-          variant="filled" 
-          sx={{ width: '100%', borderRadius: '12px', fontWeight: '500' }}
-        >
+        <Alert onClose={handleCloseNotify} severity={notify.severity} variant="filled" sx={{ width: '100%', borderRadius: '12px' }}>
           {notify.message}
         </Alert>
       </Snackbar>

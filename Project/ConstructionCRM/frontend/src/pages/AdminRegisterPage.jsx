@@ -54,11 +54,7 @@ const AddUserBtn = styled.button`
   align-items: center;
   gap: 8px;
   transition: all 0.2s ease;
-  &:hover {
-    background: #7dd3fc;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
-  }
+  &:hover { background: #7dd3fc; transform: translateY(-2px); }
 `;
 
 const LogoutIconBtn = styled.button`
@@ -72,11 +68,7 @@ const LogoutIconBtn = styled.button`
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  &:hover {
-    background: #ef4444;
-    color: white;
-    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
-  }
+  &:hover { background: #ef4444; color: white; }
 `;
 
 const TableContainer = styled.div`
@@ -92,24 +84,9 @@ const TableContainer = styled.div`
 const StyledTable = styled.table`
   width: 100%;
   border-collapse: collapse;
-  & th {
-    background: rgba(15, 23, 42, 0.6);
-    color: #38bdf8;
-    padding: 18px;
-    text-align: left;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  & td {
-    padding: 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    font-size: 14px;
-    color: #cbd5e1;
-  }
-  & tr:hover {
-    background: rgba(255, 255, 255, 0.02);
-  }
+  & th { background: rgba(15, 23, 42, 0.6); color: #38bdf8; padding: 18px; text-align: left; font-size: 12px; text-transform: uppercase; }
+  & td { padding: 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; color: #cbd5e1; }
+  & tr:hover { background: rgba(255, 255, 255, 0.02); }
 `;
 
 const Badge = styled.span`
@@ -138,27 +115,8 @@ const FormCard = styled.div`
   border-radius: 24px;
   width: 100%;
   max-width: 500px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-`;
-
-const CloseBtn = styled.button`
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  &:hover { color: white; }
-`;
-
-const InputGroup = styled.div`
-  margin-bottom: 18px;
-  display: flex;
-  flex-direction: column;
-  label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
 `;
 
 const Input = styled.input`
@@ -167,17 +125,10 @@ const Input = styled.input`
   border: 1px solid #334155;
   border-radius: 10px;
   color: white;
+  width: 100%;
+  margin-top: 12px;
   font-size: 14px;
-  &:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
-`;
-
-const Select = styled.select`
-  padding: 12px;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 10px;
-  color: white;
-  cursor: pointer;
+  &:focus { outline: none; border-color: #38bdf8; }
 `;
 
 const ActionLink = styled.span`
@@ -194,14 +145,12 @@ const AdminRegisterPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [formData, setFormData] = useState({
-    login: '', password: '', email: '', role: 'Manager',
-    department: '', phone: '', specialization: '', experience: ''
+  const [formData, setFormData] = useState({ 
+    login: '', password: '', email: '', role: 'Manager', 
+    department: '', phone: '', specialization: '', experience: '' 
   });
-  
   const [notify, setNotify] = useState({ open: false, message: '', severity: 'success' });
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
-
   const navigate = useNavigate();
 
   const fetchUsers = useCallback(async (isMounted) => {
@@ -211,69 +160,54 @@ const AdminRegisterPage = () => {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       const res = await axios.get('http://localhost:5000/api/users', config);
       if (isMounted) setUsers(res.data);
-    } catch (err) { console.error("Fetch error:", err); }
+    } catch (err) { 
+      console.error("Помилка завантаження:", err); 
+    }
   }, []);
 
   useEffect(() => {
     let isMounted = true;
-    const load = async () => await fetchUsers(isMounted);
-    load();
+    const loadData = async () => {
+      await fetchUsers(isMounted);
+    };
+    loadData();
     return () => { isMounted = false; };
   }, [fetchUsers]);
 
-  const confirmLogout = () => {
-    localStorage.removeItem('userInfo');
-    navigate('/login');
+  const confirmLogout = () => { 
+    localStorage.removeItem('userInfo'); 
+    navigate('/login'); 
   };
 
-  const resetForm = () => {
-    setFormData({ login: '', password: '', email: '', role: 'Manager', department: '', phone: '', specialization: '', experience: '' });
-    setIsEdit(false);
+  const resetForm = () => { 
+    setFormData({ 
+      login: '', password: '', email: '', role: 'Manager', 
+      department: '', phone: '', specialization: '', experience: '' 
+    }); 
+    setIsEdit(false); 
     setEditId(null);
-    setShowModal(false);
-  };
-
-  const handleCloseNotify = (event, reason) => {
-    if (reason === 'clickaway') return;
-    setNotify({ ...notify, open: false });
+    setShowModal(false); 
   };
 
   const validateData = () => {
-    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    // Регулярний вираз для телефону: обов'язковий +, код країни та цифри (10-15 симв)
     const phoneRegex = /^\+\d{10,15}$/;
+    // Складний пароль: мін 8 симв, 1 велика, 1 цифра, 1 спецсимвол
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-    // Валідація пароля: тільки при реєстрації або якщо поле не порожнє при редагуванні
-    if (!isEdit || (isEdit && formData.password)) {
-      if (!passwordRegex.test(formData.password)) {
-        setNotify({ 
-          open: true, 
-          message: 'Пароль: мін. 8 симв, велика літера, цифра та спецсимвол (!@#$%^&*)', 
-          severity: 'error' 
-        });
-        return false;
-      }
+    if (formData.role === 'Manager' && formData.phone && !phoneRegex.test(formData.phone)) {
+      setNotify({ open: true, message: 'Невірний формат телефону! Обов’язково + та код країни (напр. +380...)', severity: 'error' });
+      return false;
     }
 
-    if (formData.role === 'Manager') {
-      if (!phoneRegex.test(formData.phone)) {
-        setNotify({ 
-          open: true, 
-          message: 'Номер телефону має бути у форматі +380...', 
-          severity: 'error' 
-        });
-        return false;
-      }
+    if (formData.role === 'TechnicalCoordinator' && Number(formData.experience) < 0) {
+      setNotify({ open: true, message: 'Досвід роботи не може бути від’ємним!', severity: 'error' });
+      return false;
     }
 
-    if (formData.role === 'TechnicalCoordinator') {
-      if (Number(formData.experience) < 0) {
-        setNotify({ 
-          open: true, 
-          message: 'Досвід роботи не може бути від’ємним числом', 
-          severity: 'error' 
-        });
-        return false;
-      }
+    if (!isEdit && !passwordRegex.test(formData.password)) {
+      setNotify({ open: true, message: 'Пароль занадто слабкий! Мін. 8 симв., велика літера, цифра та спецсимвол (@$!%*?&)', severity: 'error' });
+      return false;
     }
 
     return true;
@@ -295,8 +229,9 @@ const AdminRegisterPage = () => {
       }
       await fetchUsers(true);
       resetForm();
-    } catch (err) {
-      setNotify({ open: true, message: err.response?.data?.message || 'Помилка запиту', severity: 'error' });
+    } catch (err) { 
+      console.error("Помилка відправки:", err);
+      setNotify({ open: true, message: err.response?.data?.message || 'Помилка запиту!', severity: 'error' }); 
     }
   };
 
@@ -309,7 +244,8 @@ const AdminRegisterPage = () => {
         setNotify({ open: true, message: 'Користувача видалено!', severity: 'warning' });
         await fetchUsers(true);
       } catch (err) {
-        setNotify({ open: true, message: err.response?.data?.message || 'Помилка при видаленні', severity: 'error' });
+        console.error("Помилка видалення:", err);
+        setNotify({ open: true, message: 'Помилка при видаленні!', severity: 'error' });
       }
     }
   };
@@ -319,16 +255,12 @@ const AdminRegisterPage = () => {
       <GlobalStyle />
       <HeaderSection>
         <div>
-          <h2 style={{ margin: 0, fontSize: '28px' }}>Керування персоналом</h2>
-          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '5px' }}>Панель адміністратора ConstructionCRM</p>
+          <h2 style={{ margin: 0 }}>Керування персоналом</h2>
+          <p style={{ color: '#64748b', margin: '5px 0 0 0' }}>Панель адміністратора ConstructionCRM</p>
         </div>
         <Controls>
-          <AddUserBtn onClick={() => setShowModal(true)}>
-            <UserPlus size={18} /> Додати користувача
-          </AddUserBtn>
-          <LogoutIconBtn onClick={() => setOpenLogoutDialog(true)} title="Вийти">
-            <LogOut size={20} />
-          </LogoutIconBtn>
+          <AddUserBtn onClick={() => setShowModal(true)}><UserPlus size={18} /> Додати користувача</AddUserBtn>
+          <LogoutIconBtn onClick={() => setOpenLogoutDialog(true)} title="Вийти"><LogOut size={20} /></LogoutIconBtn>
         </Controls>
       </HeaderSection>
 
@@ -339,7 +271,7 @@ const AdminRegisterPage = () => {
               <th>Логін</th>
               <th>Email</th>
               <th>Роль</th>
-              <th>Контакт / Спеціальність</th>
+              <th>Контакт / Спец.</th>
               <th>Дані профілю</th>
               <th>Дії</th>
             </tr>
@@ -347,7 +279,7 @@ const AdminRegisterPage = () => {
           <tbody>
             {users.map(u => (
               <tr key={u._id}>
-                <td style={{ fontWeight: '700', color: '#f8fafc' }}>{u.login}</td>
+                <td style={{ fontWeight: 'bold', color: '#f8fafc' }}>{u.login}</td>
                 <td>{u.email}</td>
                 <td><Badge $role={u.role}>{u.role}</Badge></td>
                 <td>{u.role === 'Manager' ? (u.phone || '—') : (u.specialization || '—')}</td>
@@ -369,106 +301,57 @@ const AdminRegisterPage = () => {
       {showModal && (
         <ModalOverlay onClick={(e) => e.target === e.currentTarget && resetForm()}>
           <FormCard>
-            <CloseBtn onClick={resetForm}><X size={24} /></CloseBtn>
-            <h3 style={{ marginTop: 0, color: '#38bdf8', marginBottom: '25px' }}>{isEdit ? 'Оновлення профілю' : 'Створення акаунта'}</h3>
+            <button onClick={resetForm} style={{ position: 'absolute', right: 20, top: 20, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><X /></button>
+            <h3 style={{ marginTop: 0, color: '#38bdf8' }}>{isEdit ? 'Оновлення профілю' : 'Новий користувач'}</h3>
             <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                <InputGroup><label>Логін</label><Input value={formData.login} onChange={(e) => setFormData({...formData, login: e.target.value})} required /></InputGroup>
-                <InputGroup><label>Email</label><Input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></InputGroup>
-              </div>
-              <InputGroup>
-                <label>Пароль {isEdit && '(залиште порожнім, щоб не змінювати)'}</label>
-                <Input type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!isEdit} placeholder={isEdit ? "••••••••" : "Мінімально 8 символів"} />
-              </InputGroup>
-              <InputGroup>
-                <label>Роль користувача</label>
-                <Select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})}>
-                  <option value="Manager">Менеджер</option>
-                  <option value="TechnicalCoordinator">Технічний Координатор</option>
-                </Select>
-              </InputGroup>
+              <Input placeholder="Логін" value={formData.login} onChange={e => setFormData({...formData, login: e.target.value})} required />
+              <Input placeholder="Email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+              <Input 
+                placeholder={isEdit ? "Новий пароль (залиште порожнім)" : "Пароль (мін. 8 симв., цифра, спецсимвол)"} 
+                type="password" 
+                value={formData.password} 
+                onChange={e => setFormData({...formData, password: e.target.value})} 
+                required={!isEdit} 
+              />
+              
+              <select style={{ width: '100%', padding: '12px', marginTop: '12px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '10px' }} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                <option value="Manager">Менеджер</option>
+                <option value="TechnicalCoordinator">Технічний Координатор</option>
+              </select>
+
               {formData.role === 'Manager' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <InputGroup><label>Відділ</label><Input value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} /></InputGroup>
-                  <InputGroup><label>Телефон</label><Input value={formData.phone} placeholder="+380XXXXXXXXX" onChange={(e) => setFormData({...formData, phone: e.target.value})} /></InputGroup>
-                </div>
+                <>
+                  <Input placeholder="Відділ" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} />
+                  <Input placeholder="Телефон (напр. +380...)" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                </>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <InputGroup><label>Спеціалізація</label><Input value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} /></InputGroup>
-                  <InputGroup><label>Досвід (роки)</label><Input type="number" min="0" value={formData.experience} onChange={(e) => setFormData({...formData, experience: e.target.value})} /></InputGroup>
-                </div>
+                <>
+                  <Input placeholder="Спеціалізація" value={formData.specialization} onChange={e => setFormData({...formData, specialization: e.target.value})} />
+                  <Input placeholder="Досвід (роки)" type="number" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} />
+                </>
               )}
-              <div style={{ marginTop: '25px', display: 'flex', gap: '12px' }}>
-                <button type="submit" style={{ flex: 2, padding: '14px', background: '#38bdf8', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', color: '#0f172a' }}>Зберегти</button>
-                <button type="button" onClick={resetForm} style={{ flex: 1, background: 'transparent', color: '#94a3b8', border: '1px solid #334155', borderRadius: '12px', cursor: 'pointer' }}>Скасувати</button>
-              </div>
+
+              <button type="submit" style={{ width: '100%', padding: '14px', marginTop: '25px', background: '#38bdf8', color: '#0f172a', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                {isEdit ? 'Зберегти зміни' : 'Зареєструвати'}
+              </button>
             </form>
           </FormCard>
         </ModalOverlay>
       )}
 
-    <Dialog
-  open={openLogoutDialog}
-  onClose={() => setOpenLogoutDialog(false)}
-  PaperProps={{
-    style: { 
-      borderRadius: '20px', 
-      backgroundColor: '#1e293b', 
-      color: 'white', 
-      padding: '20px', // Трохи збільшив відступ для балансу
-      minWidth: '350px' 
-    }
-  }}
->
-  <DialogContent style={{ padding: '0' }}>
-    <Alert 
-      severity="warning" 
-      variant="filled"
-      style={{ 
-        borderRadius: '15px', 
-        fontWeight: '600',
-        display: 'flex',
-        alignItems: 'center'
-      }}
-      action={
-        <Button 
-          color="inherit" 
-          size="small" 
-          onClick={confirmLogout}
-          style={{ fontWeight: 'bold' }}
-        >
-          ТАК, ВИЙТИ
-        </Button>
-      }
-    >
-      Ви впевнені, що хочете вийти з системи?
-    </Alert>
-  </DialogContent>
-  
-  {/* Кнопка скасування тепер розміщена по центру під алером */}
-  <DialogActions style={{ justifyContent: 'center', marginTop: '15px', padding: '0' }}>
-    <Button 
-      onClick={() => setOpenLogoutDialog(false)} 
-      style={{ 
-        color: '#94a3b8', 
-        textTransform: 'none', 
-        fontSize: '14px',
-        textDecoration: 'underline' 
-      }}
-    >
-      Ні, залишитися в системі (Скасувати)
-    </Button>
-  </DialogActions>
-</Dialog>
-      <Snackbar 
-        open={notify.open} 
-        autoHideDuration={4000} 
-        onClose={handleCloseNotify}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseNotify} severity={notify.severity} variant="filled" sx={{ width: '100%', borderRadius: '12px' }}>
-          {notify.message}
-        </Alert>
+      <Dialog open={openLogoutDialog} onClose={() => setOpenLogoutDialog(false)} PaperProps={{ style: { borderRadius: '24px', backgroundColor: '#1e293b', color: 'white', padding: '20px', minWidth: '380px', border: '1px solid rgba(255, 255, 255, 0.1)' } }}>
+        <DialogContent style={{ padding: '0' }}>
+          <Alert severity="warning" variant="filled" style={{ borderRadius: '16px', fontWeight: '600', display: 'flex', alignItems: 'center' }} action={<Button color="inherit" size="small" onClick={confirmLogout} style={{ fontWeight: '800' }}>ТАК, ВИЙТИ</Button>}>
+            Ви впевнені, що хочете вийти?
+          </Alert>
+        </DialogContent>
+        <DialogActions style={{ justifyContent: 'center', marginTop: '15px', padding: '0' }}>
+          <Button onClick={() => setOpenLogoutDialog(false)} style={{ color: '#94a3b8', textTransform: 'none', fontSize: '14px', textDecoration: 'underline' }}>Скасувати</Button>
+        </DialogActions>
+      </Dialog>
+      
+      <Snackbar open={notify.open} autoHideDuration={4000} onClose={() => setNotify({...notify, open: false})} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <Alert severity={notify.severity} variant="filled" sx={{ width: '100%', borderRadius: '12px' }}>{notify.message}</Alert>
       </Snackbar>
     </AdminWrapper>
   );

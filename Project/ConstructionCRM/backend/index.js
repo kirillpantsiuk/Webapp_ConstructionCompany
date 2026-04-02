@@ -2,30 +2,30 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db.js');
-const userRoutes = require('./routes/userRoutes'); // Імпортуємо роути
+const userRoutes = require('./routes/userRoutes');
+const clientRoutes = require('./routes/clientRoutes');
 
-// 1. Завантаження змінних середовища
 dotenv.config();
-
-// 2. Підключення до бази даних
 connectDB();
 
-// 3. Ініціалізація додатка (Створюємо 'app' ПЕРЕД використанням)
 const app = express();
 
-// 4. Мідлвари
 app.use(cors());
-app.use(express.json()); // Щоб сервер розумів JSON у тілі запиту
+app.use(express.json());
 
-// 5. Підключення маршрутів (Тепер 'app' вже існує)
 app.use('/api/users', userRoutes);
+app.use('/api/clients', clientRoutes);
 
-// Базовий тестовий роут
+// Додайте цей блок для логування помилок у термінал
+app.use((err, req, res, next) => {
+  console.error('SERVER ERROR:', err.stack);
+  res.status(500).json({ message: 'Внутрішня помилка сервера', error: err.message });
+});
+
 app.get('/', (req, res) => {
   res.send('API будівельної CRM працює...');
 });
 
-// 6. Запуск сервера
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Сервер запущено на порту ${PORT}`);

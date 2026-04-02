@@ -8,26 +8,26 @@ const {
   updateUser,
   getUserProfile 
 } = require('../controllers/userController');
-const { protectAdmin } = require('../middleware/authMiddleware');
+const { protect, authorize } = require('../middleware/authMiddleware');
 
 // --- ПУБЛІЧНІ МАРШРУТИ ---
+// Логін відкритий для всіх користувачів
 router.post('/login', loginUser);
 
+// --- МАРШРУТИ ДЛЯ АВТОРИЗОВАНИХ КОРИСТУВАЧІВ ---
+// Отримання особистого профілю (доступно всім ролям: Manager, TechnicalCoordinator, SuperAdmin)
+router.get('/profile', protect, getUserProfile);
+
 // --- ЗАХИЩЕНІ МАРШРУТИ (Тільки для SuperAdmin) ---
+// Реєстрація нових працівників (Менеджерів та Тех. координаторів)
+router.post('/register', protect, authorize('SuperAdmin'), registerUser);
 
-// Реєстрація та отримання списку всіх користувачів
-router.route('/register')
-  .post(protectAdmin, registerUser);
+// Отримання списку всіх користувачів (тільки для SuperAdmin)
+router.get('/', protect, authorize('SuperAdmin'), getAllUsers);
 
-router.route('/')
-  .get(protectAdmin, getAllUsers);
-
-// Видалення та оновлення конкретного користувача за його ID
+// Видалення та оновлення конкретного користувача за його ID (тільки для SuperAdmin)
 router.route('/:id')
-  .delete(protectAdmin, deleteUser)
-  .put(protectAdmin, updateUser);
-
-// Отримання особистого профілю (доступно авторизованим юзерам)
-router.get('/profile', protectAdmin, getUserProfile);
+  .delete(protect, authorize('SuperAdmin'), deleteUser)
+  .put(protect, authorize('SuperAdmin'), updateUser);
 
 module.exports = router;

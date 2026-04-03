@@ -1,9 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { createClient } = require('../controllers/clientController');
+const { 
+  createClient, 
+  getClients, 
+  updateClient, 
+  deleteClient 
+} = require('../controllers/clientController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
-// ПЕРЕВІРТЕ: тут має бути '/', а НЕ '/api/clients'
-router.post('/', protect, authorize('Manager'), createClient);
+// Маршрут для '/' (відповідає за /api/clients)
+router.route('/')
+  .get(protect, authorize('Manager'), getClients)   // Отримати всіх (для таблиці)
+  .post(protect, authorize('Manager'), createClient); // Створити нового
+
+// Маршрут для '/:id' (відповідає за /api/clients/ID_КЛІЄНТА)
+router.route('/:id')
+  .put(protect, authorize('Manager'), updateClient)    // Оновити дані
+  .delete(protect, authorize('Manager'), deleteClient); // Видалити
 
 module.exports = router;

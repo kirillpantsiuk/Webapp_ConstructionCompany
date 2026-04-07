@@ -8,7 +8,8 @@ const userRoutes = require('./routes/userRoutes');
 const clientRoutes = require('./routes/clientRoutes');
 const buildingRoutes = require('./routes/buildingRoutes');
 const templateRoutes = require('./routes/templateRoutes'); 
-const paymentRoutes = require('./routes/paymentRoutes'); // ДОДАНО: Імпорт роутів для оплат (Payments)
+const paymentRoutes = require('./routes/paymentRoutes');
+const siteInspectionRoutes = require('./routes/siteInspectionRoutes'); // ДОДАНО: Роути для огляду ділянок
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -28,14 +29,15 @@ app.use('/api/users', userRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/building-objects', buildingRoutes);
 app.use('/api/templates', templateRoutes);
-app.use('/api/payments', paymentRoutes); // ДОДАНО ТА ПІДКЛЮЧЕНО: Тепер ендпоінт /api/payments працює
+app.use('/api/payments', paymentRoutes);
+app.use('/api/site-inspections', siteInspectionRoutes); // ДОДАНО: Ендпоінт для технічного огляду ділянок
 
 // Статична папка для завантажень
 app.use('/uploads', express.static('uploads'));
 
 // Головний маршрут
 app.get('/', (req, res) => {
-  res.send('API будівельної CRM працює. Доступні ендпоінти: /api/users, /api/clients, /api/building-objects, /api/templates, /api/payments');
+  res.send('API будівельної CRM працює. Доступні ендпоінти: /api/users, /api/clients, /api/building-objects, /api/templates, /api/payments, /api/site-inspections');
 });
 
 // Обробка неіснуючих маршрутів (404)
@@ -67,7 +69,7 @@ const server = app.listen(PORT, () => {
   console.log(`📡 Адреса: http://localhost:${PORT}`);
 });
 
-// Обробка критичних помилок (наприклад, проблеми з підключенням до БД)
+// Обробка критичних помилок
 process.on('unhandledRejection', (err, promise) => {
   console.error(`FATAL ERROR: ${err.message}`);
   server.close(() => process.exit(1));

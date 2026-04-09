@@ -1,7 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const path = require('path'); // Додано для роботи зі шляхами
+const path = require('path');
 const connectDB = require('./config/db.js');
 
 // Імпорт маршрутів
@@ -11,8 +11,8 @@ const buildingRoutes = require('./routes/buildingRoutes');
 const templateRoutes = require('./routes/templateRoutes'); 
 const paymentRoutes = require('./routes/paymentRoutes');
 const siteInspectionRoutes = require('./routes/siteInspectionRoutes'); 
-const driveRoutes = require('./routes/driveRoutes');
-const blueprintRoutes = require('./routes/blueprintRoutes'); // НОВИЙ МАРШРУТ ДЛЯ КРЕСЛЕНЬ
+// driveRoutes ВИДАЛЕНО, бо ми не використовуємо Google Drive
+const blueprintRoutes = require('./routes/blueprintRoutes'); 
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -34,10 +34,10 @@ app.use('/api/building-objects', buildingRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/site-inspections', siteInspectionRoutes);
-app.use('/api/drive', driveRoutes); 
-app.use('/api/blueprints', blueprintRoutes); // ПІДКЛЮЧЕННЯ КРЕСЛЕНЬ (MONGODB)
+// app.use('/api/drive', driveRoutes); // ВИДАЛЕНО
+app.use('/api/blueprints', blueprintRoutes); 
 
-// Статична папка для завантажень (Робимо її доступною для браузера)
+// Статична папка для завантажень (ОБОВ'ЯЗКОВО для відображення креслень)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Головний маршрут

@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const path = require('path'); // Додано для роботи зі шляхами
 const connectDB = require('./config/db.js');
 
 // Імпорт маршрутів
@@ -9,7 +10,9 @@ const clientRoutes = require('./routes/clientRoutes');
 const buildingRoutes = require('./routes/buildingRoutes');
 const templateRoutes = require('./routes/templateRoutes'); 
 const paymentRoutes = require('./routes/paymentRoutes');
-const siteInspectionRoutes = require('./routes/siteInspectionRoutes'); // ДОДАНО: Роути для огляду ділянок
+const siteInspectionRoutes = require('./routes/siteInspectionRoutes'); 
+const driveRoutes = require('./routes/driveRoutes');
+const blueprintRoutes = require('./routes/blueprintRoutes'); // НОВИЙ МАРШРУТ ДЛЯ КРЕСЛЕНЬ
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -30,14 +33,16 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/building-objects', buildingRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/site-inspections', siteInspectionRoutes); // ДОДАНО: Ендпоінт для технічного огляду ділянок
+app.use('/api/site-inspections', siteInspectionRoutes);
+app.use('/api/drive', driveRoutes); 
+app.use('/api/blueprints', blueprintRoutes); // ПІДКЛЮЧЕННЯ КРЕСЛЕНЬ (MONGODB)
 
-// Статична папка для завантажень
-app.use('/uploads', express.static('uploads'));
+// Статична папка для завантажень (Робимо її доступною для браузера)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Головний маршрут
 app.get('/', (req, res) => {
-  res.send('API будівельної CRM працює. Доступні ендпоінти: /api/users, /api/clients, /api/building-objects, /api/templates, /api/payments, /api/site-inspections');
+  res.send('API будівельної CRM працює. Доступні ендпоінти: /api/users, /api/clients, /api/building-objects, /api/blueprints');
 });
 
 // Обробка неіснуючих маршрутів (404)
@@ -50,12 +55,6 @@ app.use((req, res, next) => {
 // Глобальний обробник помилок
 app.use((err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  
-  console.error('--- SERVER ERROR LOG ---');
-  console.error(`Method: ${req.method} | URL: ${req.url}`);
-  console.error('Stack:', err.stack);
-  console.error('------------------------');
-
   res.status(statusCode).json({
     message: err.message || 'Внутрішня помилка сервера',
     stack: process.env.NODE_ENV === 'production' ? null : err.stack,
@@ -65,11 +64,9 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Сервер запущено у режимі: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📡 Адреса: http://localhost:${PORT}`);
+  console.log(`🚀 Сервер запущено: http://localhost:${PORT}`);
 });
 
-// Обробка критичних помилок
 process.on('unhandledRejection', (err, promise) => {
   console.error(`FATAL ERROR: ${err.message}`);
   server.close(() => process.exit(1));

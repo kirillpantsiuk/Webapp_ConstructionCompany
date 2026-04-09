@@ -1,10 +1,18 @@
 const mongoose = require('mongoose');
 
 const blueprintSchema = new mongoose.Schema({
-  fileUrl: { type: String, required: true }, 
-  uploadDate: { type: Date, default: Date.now },
-  version: { type: String, required: true },
-  projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'TechnicalProject', required: true }
-}, { timestamps: true });
+  name: { 
+    type: String, 
+    required: true 
+  },
+  imageUrl: { 
+    type: String, 
+    required: true 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+});
 
 module.exports = mongoose.model('Blueprint', blueprintSchema);

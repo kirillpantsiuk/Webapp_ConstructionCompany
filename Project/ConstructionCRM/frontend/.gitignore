@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Secrets
+google-credentials.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

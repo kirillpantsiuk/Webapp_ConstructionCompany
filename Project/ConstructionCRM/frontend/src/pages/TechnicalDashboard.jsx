@@ -3,7 +3,7 @@ import styled, { createGlobalStyle } from 'styled-components';
 import { 
   LogOut, Menu, X, LayoutDashboard, Edit, Trash2, Printer, Plus, Home, MapPin, 
   AlertTriangle, Eye, Zap, Truck, Construction, Droplets, Flame, ShieldAlert, 
-  CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen 
+  CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -27,6 +27,7 @@ const GlobalStyle = createGlobalStyle`
   
   @media print { 
     .no-print { display: none !important; } 
+    body { background: white !important; color: black !important; padding: 0 !important; } 
   }
 `;
 
@@ -41,6 +42,11 @@ const Sidebar = styled.div`
   top: 0; width: 280px; height: 100%; background: rgba(15, 23, 42, 0.98);
   backdrop-filter: blur(25px); border-right: 1px solid rgba(255, 255, 255, 0.1);
   transition: 0.4s; z-index: 1000; padding: 30px 20px; display: flex; flex-direction: column;
+`;
+
+const LogoContainer = styled.div`
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 45px;
+  h2 { color: #38bdf8; margin: 0; font-weight: 900; letter-spacing: -0.02em; font-size: 24px; }
 `;
 
 const SidebarItem = styled.div`
@@ -167,11 +173,11 @@ const CancelLogoutLink = styled.div`
 const TechnicalDashboard = () => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('inspections');
   const [searchTerm, setSearchTerm] = useState('');
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [openInspectionForm, setOpenInspectionForm] = useState(false);
-  const [notify, setNotify] = useState({ open: false, message: '', severity: 'success' });
+  const [notify, setNotify] = useState({ open: false, message: '', severity: 'info' });
   
   const [buildingObjects, setBuildingObjects] = useState([]);
   const [inspections, setInspections] = useState([]);
@@ -208,7 +214,7 @@ const TechnicalDashboard = () => {
       setBuildingObjects(Array.isArray(resObjs.data) ? resObjs.data : []);
       setInspections(Array.isArray(resInsp.data) ? resInsp.data : []);
       setBlueprintsList(Array.isArray(resBlueprints.data) ? resBlueprints.data : []);
-    } catch (err) { console.error(err); } finally { setLoadingDrawings(false); }
+    } catch (err) { console.error("Fetch error:", err); } finally { setLoadingDrawings(false); }
   }, [userInfo]);
 
   useEffect(() => {
@@ -218,7 +224,6 @@ const TechnicalDashboard = () => {
 
   const handleLogout = () => { localStorage.removeItem('userInfo'); navigate('/login'); };
 
-  // --- ФУНКЦІЯ ДРУКУ (ОПТИМІЗОВАНА ПІД А4) ---
   const handlePrintInspection = (ins) => {
     const obj = buildingObjects.find(o => o._id === (ins.objectId?._id || ins.objectId));
     const inspectorName = ins.inspectorId ? `${ins.inspectorId.surname || ''} ${ins.inspectorId.firstName || ''}` : (userInfo?.login || "Координатор");
@@ -252,7 +257,6 @@ const TechnicalDashboard = () => {
           <div><h1>Технічний акт огляду ділянки</h1><p style="margin:0;">BUILD CRM | ТЕХНІЧНИЙ НАГЛЯД</p></div>
           <div style="text-align:right"><b>№ ${ins._id.toUpperCase().slice(-8)}</b><br/>Дата: ${dateStr}</div>
         </div>
-
         <div class="section">
           <div class="section-title">01. Загальні дані</div>
           <div class="grid">
@@ -261,7 +265,6 @@ const TechnicalDashboard = () => {
             <div class="item"><span class="label">Координати GPS:</span><span class="val">${obj?.coordinates || '—'}</span></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title">02. Геологія та рельєф</div>
           <div class="grid">
@@ -270,7 +273,6 @@ const TechnicalDashboard = () => {
             <div class="item full"><span class="label">Рельєф:</span><div class="box">${ins.relief}</div></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title">03. Комунікації (Мережі)</div>
           <div class="grid">
@@ -279,7 +281,6 @@ const TechnicalDashboard = () => {
             <div class="item"><span class="label">Газ:</span><span class="val">${ins.gas?.status}</span></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title">04. Логістика та обмеження</div>
           <div class="grid">
@@ -290,17 +291,14 @@ const TechnicalDashboard = () => {
             <div class="item full"><span class="label">Сусіди:</span><span class="val">${ins.neighborConstraints || 'Без зауважень'}</span></div>
           </div>
         </div>
-
         <div class="section">
           <div class="section-title">05. Висновок спеціаліста</div>
           <div class="box" style="border-left: 3px solid #38bdf8; background: #f0faff;">${ins.recommendations}</div>
         </div>
-
         <div class="footer">
           <div class="sign-block">Координатор: ${inspectorName}</div>
           <div class="sign-block">Замовник будівництва</div>
         </div>
-
         <script>
           window.onload = function() { 
             window.print(); 
@@ -316,8 +314,24 @@ const TechnicalDashboard = () => {
 
   const handleSubmitInspection = async (e) => {
     e.preventDefault();
-    if (!inspectionData.objectId) return setNotify({ open: true, message: 'Оберіть об’єкт!', severity: 'error' });
-    if (!inspectionData.relief.trim() || !inspectionData.recommendations.trim()) return setNotify({ open: true, message: 'Заповніть описи!', severity: 'error' });
+    
+    // --- ВАЛІДАЦІЯ ПЕРЕД ВІДПРАВКОЮ ---
+    if (!inspectionData.objectId) {
+      setNotify({ open: true, message: 'Оберіть об’єкт будівництва!', severity: 'error' });
+      return;
+    }
+    if (!inspectionData.relief.trim()) {
+      setNotify({ open: true, message: 'Опишіть рельєф ділянки!', severity: 'error' });
+      return;
+    }
+    if (!inspectionData.recommendations.trim()) {
+      setNotify({ open: true, message: 'Надайте технічний висновок!', severity: 'error' });
+      return;
+    }
+    if (Number(inspectionData.electricity.distance) < 0 || Number(inspectionData.water.depthExpected) < 0) {
+      setNotify({ open: true, message: 'Значення не можуть бути від’ємними!', severity: 'error' });
+      return;
+    }
 
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
@@ -333,11 +347,24 @@ const TechnicalDashboard = () => {
       if (editingId) await axios.put(`http://localhost:5000/api/site-inspections/${editingId}`, payload, config);
       else await axios.post('http://localhost:5000/api/site-inspections', payload, config);
 
-      setNotify({ open: true, message: 'Збережено!', severity: 'success' });
+      setNotify({ open: true, message: 'Запис успішно збережено', severity: 'info' });
       setOpenInspectionForm(false); setEditingId(null); fetchData();
     } catch (err) {
-      console.error("Помилка:", err); // ТЕПЕР ЗМІННА err ВИКОРИСТОВУЄТЬСЯ
+      console.error("Save error:", err);
       setNotify({ open: true, message: 'Помилка збереження!', severity: 'error' });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if(!window.confirm('Видалити цей запис?')) return;
+    try {
+      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+      await axios.delete(`http://localhost:5000/api/site-inspections/${id}`, config);
+      setNotify({ open: true, message: 'Запис успішно видалено', severity: 'info' });
+      fetchData();
+    } catch (err) {
+      console.error("Delete error:", err);
+      setNotify({ open: true, message: 'Помилка видалення!', severity: 'error' });
     }
   };
 
@@ -352,17 +379,16 @@ const TechnicalDashboard = () => {
     <DashboardWrapper>
       <GlobalStyle />
       <Sidebar $isOpen={menuOpen}>
-        <div style={{display:'flex', justifyContent:'space-between', marginBottom:'45px'}}>
-          <h2 style={{color:'#38bdf8', margin:0, fontWeight: 900}}>BUILD TECH</h2>
+        <LogoContainer>
+          <h2>BUILD CRM</h2>
           <IconButton onClick={() => setMenuOpen(false)} style={{color: '#94a3b8'}}><X /></IconButton>
-        </div>
+        </LogoContainer>
         <SidebarItem $active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setMenuOpen(false); }}><LayoutDashboard size={20}/> Огляд</SidebarItem>
         <SidebarItem $active={activeTab === 'inspections'} onClick={() => { setActiveTab('inspections'); setMenuOpen(false); }}><Eye size={20}/> Огляд ділянок</SidebarItem>
         <SidebarItem $active={activeTab === 'blueprints'} onClick={() => { setActiveTab('blueprints'); setMenuOpen(false); }}><FileText size={20}/> Креслення</SidebarItem>
         <SidebarItem $active={activeTab === 'objects'} onClick={() => { setActiveTab('objects'); setMenuOpen(false); }}><Home size={20}/> Об'єкти</SidebarItem>
-        
         <SidebarItem onClick={() => setLogoutDialogOpen(true)} style={{marginTop:'auto', color:'#ef4444'}}>
-          <LogOut size={20}/> Вихід з системи
+          <LogOut size={20} color="#ef4444"/> Вийти з системи
         </SidebarItem>
       </Sidebar>
 
@@ -381,14 +407,6 @@ const TechnicalDashboard = () => {
           {activeTab === 'inspections' && <ActionButton onClick={() => { setInspectionData(initialInspectionState); setEditingId(null); setOpenInspectionForm(true); }}><Plus size={18}/> НОВИЙ ОГЛЯД</ActionButton>}
         </HeaderSection>
 
-        {activeTab === 'dashboard' && (
-          <div style={{textAlign:'center', marginTop:'120px'}}>
-             <Home size={100} color="#1e293b" style={{marginBottom: '20px'}} />
-             <h2 style={{fontSize: '32px', fontWeight: 900}}>BUILD CRM System</h2>
-             <p style={{color: '#94a3b8', fontSize: '18px'}}>Система управління технічним наглядом.</p>
-          </div>
-        )}
-
         {activeTab === 'inspections' && (
           <TableContainer>
             <StyledTable>
@@ -404,7 +422,7 @@ const TechnicalDashboard = () => {
                       <td style={{textAlign:'right'}}>
                         <IconButton onClick={() => handlePrintInspection(ins)} style={{color:'#38bdf8'}} title="Друк акту"><Printer size={18}/></IconButton>
                         <IconButton onClick={() => { setInspectionData(ins); setEditingId(ins._id); setOpenInspectionForm(true); }} style={{color:'#fbbf24'}} title="Редагувати"><Edit size={18}/></IconButton>
-                        <IconButton onClick={async () => { if(window.confirm('Видалити?')) { await axios.delete(`http://localhost:5000/api/site-inspections/${ins._id}`, {headers:{Authorization:`Bearer ${userInfo.token}`}}); fetchData(); }}} style={{color:'#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton>
+                        <IconButton onClick={() => handleDelete(ins._id)} style={{color:'#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton>
                       </td>
                     </tr>
                   )
@@ -475,17 +493,11 @@ const TechnicalDashboard = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog 
-        open={logoutDialogOpen} 
-        onClose={() => setLogoutDialogOpen(false)} 
-        maxWidth="xs" 
-        fullWidth 
-        PaperProps={{ style: { backgroundColor: '#1e293b', borderRadius: '40px', padding: '15px' } }}
-      >
+      <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ style: { backgroundColor: '#1e293b', borderRadius: '40px', padding: '15px' } }}>
         <DialogContent style={{ padding: '10px' }}>
           <OrangeAlertBar>
             <AlertText><AlertTriangle size={24} color="white"/> Вийти з системи?</AlertText>
-            <ConfirmLogoutButton onClick={handleLogout}>ВИХІД З СИСТЕМИ</ConfirmLogoutButton>
+            <ConfirmLogoutButton onClick={handleLogout}>ТАК ВИЙТИ</ConfirmLogoutButton>
           </OrangeAlertBar>
           <div style={{textAlign: 'center', marginTop: '15px'}}>
             <CancelLogoutLink onClick={() => setLogoutDialogOpen(false)}>СКАСУВАТИ</CancelLogoutLink>
@@ -493,8 +505,26 @@ const TechnicalDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <Snackbar open={notify.open} autoHideDuration={3000} onClose={()=>setNotify({...notify, open:false})} anchorOrigin={{vertical:'top',horizontal:'right'}}>
-        <Alert severity={notify.severity} variant="filled" style={{fontWeight: 700}}>{notify.message}</Alert>
+      <Snackbar 
+        open={notify.open} 
+        autoHideDuration={3000} 
+        onClose={()=>setNotify({...notify, open:false})} 
+        anchorOrigin={{vertical:'top',horizontal:'right'}}
+      >
+        <Alert 
+          icon={<Info size={18} />}
+          severity={notify.severity} 
+          variant="filled" 
+          style={{ 
+            backgroundColor: '#0288d1', 
+            color: '#fff', 
+            borderRadius: '12px', 
+            fontWeight: 600,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+          }}
+        >
+          {notify.message}
+        </Alert>
       </Snackbar>
     </DashboardWrapper>
   );

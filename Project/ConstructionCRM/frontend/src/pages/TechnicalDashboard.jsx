@@ -315,21 +315,23 @@ const TechnicalDashboard = () => {
   const handleSubmitInspection = async (e) => {
     e.preventDefault();
     
-    // --- ВАЛІДАЦІЯ ПЕРЕД ВІДПРАВКОЮ ---
-    if (!inspectionData.objectId) {
-      setNotify({ open: true, message: 'Оберіть об’єкт будівництва!', severity: 'error' });
+    // --- СУВОРА ВАЛІДАЦІЯ УСІХ ПОЛІВ ---
+    const { 
+      objectId, relief, electricity, water, gas, accessRoads, 
+      storageArea, existingStructures, neighborConstraints, recommendations 
+    } = inspectionData;
+
+    if (
+      !objectId || !relief.trim() || !electricity.status || !water.status || 
+      !gas.status || !accessRoads || !storageArea || 
+      !existingStructures.trim() || !neighborConstraints.trim() || !recommendations.trim()
+    ) {
+      setNotify({ open: true, message: 'Помилка: Усі текстові поля та вибори мають бути заповнені!', severity: 'error' });
       return;
     }
-    if (!inspectionData.relief.trim()) {
-      setNotify({ open: true, message: 'Опишіть рельєф ділянки!', severity: 'error' });
-      return;
-    }
-    if (!inspectionData.recommendations.trim()) {
-      setNotify({ open: true, message: 'Надайте технічний висновок!', severity: 'error' });
-      return;
-    }
-    if (Number(inspectionData.electricity.distance) < 0 || Number(inspectionData.water.depthExpected) < 0) {
-      setNotify({ open: true, message: 'Значення не можуть бути від’ємними!', severity: 'error' });
+
+    if (Number(electricity.distance) < 0 || Number(water.depthExpected) < 0) {
+      setNotify({ open: true, message: 'Помилка: Відстань та глибина не можуть бути від’ємними!', severity: 'error' });
       return;
     }
 
@@ -351,7 +353,7 @@ const TechnicalDashboard = () => {
       setOpenInspectionForm(false); setEditingId(null); fetchData();
     } catch (err) {
       console.error("Save error:", err);
-      setNotify({ open: true, message: 'Помилка збереження!', severity: 'error' });
+      setNotify({ open: true, message: 'Помилка збереження даних на сервері!', severity: 'error' });
     }
   };
 
@@ -364,7 +366,7 @@ const TechnicalDashboard = () => {
       fetchData();
     } catch (err) {
       console.error("Delete error:", err);
-      setNotify({ open: true, message: 'Помилка видалення!', severity: 'error' });
+      setNotify({ open: true, message: 'Помилка при видаленні запису!', severity: 'error' });
     }
   };
 
@@ -406,6 +408,14 @@ const TechnicalDashboard = () => {
           )}
           {activeTab === 'inspections' && <ActionButton onClick={() => { setInspectionData(initialInspectionState); setEditingId(null); setOpenInspectionForm(true); }}><Plus size={18}/> НОВИЙ ОГЛЯД</ActionButton>}
         </HeaderSection>
+
+        {activeTab === 'dashboard' && (
+          <div style={{textAlign:'center', marginTop:'120px'}}>
+             <Home size={100} color="#1e293b" style={{marginBottom: '20px'}} />
+             <h2 style={{fontSize: '32px', fontWeight: 900}}>BUILD CRM System</h2>
+             <p style={{color: '#94a3b8', fontSize: '18px'}}>Система управління технічним наглядом.</p>
+          </div>
+        )}
 
         {activeTab === 'inspections' && (
           <TableContainer>
@@ -460,31 +470,31 @@ const TechnicalDashboard = () => {
           <FormGrid onSubmit={handleSubmitInspection} id="insp-form">
             <SectionTitle><MapPin size={14}/> 1. Геологія</SectionTitle>
             <InputGroup><label>Об'єкт *</label><select required value={inspectionData.objectId?._id || inspectionData.objectId} onChange={e => setInspectionData({...inspectionData, objectId: e.target.value})}><option value="">Оберіть...</option>{buildingObjects.map(o => <option key={o._id} value={o._id}>{o.address}</option>)}</select></InputGroup>
-            <InputGroup><label>Грунт</label><select value={inspectionData.soilType} onChange={e => setInspectionData({...inspectionData, soilType: e.target.value})}>{['Піщаний', 'Глинистий', 'Суглинок', 'Чорнозем', 'Кам’янистий', 'Насипний'].map(s => <option key={s} value={s}>{s}</option>)}</select></InputGroup>
-            <InputGroup><label>Рівень вод</label><select value={inspectionData.groundwaterLevel} onChange={e => setInspectionData({...inspectionData, groundwaterLevel: e.target.value})}>{['Низький (>3м)', 'Середній (1.5-3м)', 'Високий (<1.5м)'].map(l => <option key={l} value={l}>{l}</option>)}</select></InputGroup>
+            <InputGroup><label>Грунт *</label><select required value={inspectionData.soilType} onChange={e => setInspectionData({...inspectionData, soilType: e.target.value})}>{['Піщаний', 'Глинистий', 'Суглинок', 'Чорнозем', 'Кам’янистий', 'Насипний'].map(s => <option key={s} value={s}>{s}</option>)}</select></InputGroup>
+            <InputGroup><label>Рівень вод *</label><select required value={inspectionData.groundwaterLevel} onChange={e => setInspectionData({...inspectionData, groundwaterLevel: e.target.value})}>{['Низький (>3м)', 'Середній (1.5-3м)', 'Високий (<1.5м)'].map(l => <option key={l} value={l}>{l}</option>)}</select></InputGroup>
             <InputGroup $span={3}><label>Рельєф *</label><input required value={inspectionData.relief} onChange={e => setInspectionData({...inspectionData, relief: e.target.value})} /></InputGroup>
 
             <SectionTitle><Zap size={14}/> 2. Мережі</SectionTitle>
-            <InputGroup><label>Електрика</label><select value={inspectionData.electricity.status} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, status: e.target.value}})}><option value="Підключено">Підключено</option><option value="Поруч (стовп)">Поруч (стовп)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
-            <InputGroup><label>Відстань (м)</label><input type="number" value={inspectionData.electricity.distance} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, distance: e.target.value}})}/></InputGroup>
-            <InputGroup><label>Фази</label><select value={inspectionData.electricity.phases} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, phases: e.target.value}})}><option value="1-фаза">1-фаза</option><option value="3-фази">3-фази</option><option value="Невідомо">Невідомо</option></select></InputGroup>
+            <InputGroup><label>Електрика *</label><select required value={inspectionData.electricity.status} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, status: e.target.value}})}><option value="Підключено">Підключено</option><option value="Поруч (стовп)">Поруч (стовп)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
+            <InputGroup><label>Відстань (м) *</label><input required type="number" value={inspectionData.electricity.distance} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, distance: e.target.value}})}/></InputGroup>
+            <InputGroup><label>Фази *</label><select required value={inspectionData.electricity.phases} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, phases: e.target.value}})}><option value="1-фаза">1-фаза</option><option value="3-фази">3-фази</option><option value="Невідомо">Невідомо</option></select></InputGroup>
 
             <SectionTitle><Droplets size={14}/> 3. Вода та Газ</SectionTitle>
-            <InputGroup><label>Вода</label><select value={inspectionData.water.status} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, status: e.target.value}})}><option value="Централізоване">Централізоване</option><option value="Свердловина (є)">Свердловина (є)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
-            <InputGroup><label>Глибина (м)</label><input type="number" value={inspectionData.water.depthExpected} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, depthExpected: e.target.value}})}/></InputGroup>
-            <InputGroup><label>Газ</label><select value={inspectionData.gas.status} onChange={e => setInspectionData({...inspectionData, gas: {status: e.target.value}})}><option value="На ділянці">На ділянці</option><option value="По вулиці">По вулиці</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
+            <InputGroup><label>Вода *</label><select required value={inspectionData.water.status} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, status: e.target.value}})}><option value="Централізоване">Централізоване</option><option value="Свердловина (є)">Свердловина (є)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
+            <InputGroup><label>Глибина (м) *</label><input required type="number" value={inspectionData.water.depthExpected} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, depthExpected: e.target.value}})}/></InputGroup>
+            <InputGroup><label>Газ *</label><select required value={inspectionData.gas.status} onChange={e => setInspectionData({...inspectionData, gas: {status: e.target.value}})}><option value="На ділянці">На ділянці</option><option value="По вулиці">По вулиці</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
 
             <SectionTitle><Truck size={14}/> 4. Логістика</SectionTitle>
-            <InputGroup><label>Дороги</label><select value={inspectionData.accessRoads} onChange={e => setInspectionData({...inspectionData, accessRoads: e.target.value})}>{['Асфальтоване', 'Бетонні плити', 'Грунтові дороги', 'Ускладнений доїзд'].map(r => <option key={r} value={r}>{r}</option>)}</select></InputGroup>
-            <InputGroup><label>Складування</label><select value={inspectionData.storageArea} onChange={e => setInspectionData({...inspectionData, storageArea: e.target.value})}>{['Достатньо місця', 'Обмежений простір', 'Місце відсутнє'].map(s => <option key={s} value={s}>{s}</option>)}</select></InputGroup>
+            <InputGroup><label>Дороги *</label><select required value={inspectionData.accessRoads} onChange={e => setInspectionData({...inspectionData, accessRoads: e.target.value})}>{['Асфальтоване', 'Бетонні плити', 'Грунтові дороги', 'Ускладнений доїзд'].map(r => <option key={r} value={r}>{r}</option>)}</select></InputGroup>
+            <InputGroup><label>Складування *</label><select required value={inspectionData.storageArea} onChange={e => setInspectionData({...inspectionData, storageArea: e.target.value})}>{['Достатньо місця', 'Обмежений простір', 'Місце відсутнє'].map(s => <option key={s} value={s}>{s}</option>)}</select></InputGroup>
             <div style={{display:'flex', gap:'20px', alignItems:'center', paddingLeft:'10px'}}><FormControlLabel control={<Switch checked={inspectionData.truckAccess} onChange={e => setInspectionData({...inspectionData, truckAccess: e.target.checked})} color="primary" />} label="Доступ фури" /><FormControlLabel control={<Switch checked={inspectionData.powerLines} onChange={e => setInspectionData({...inspectionData, powerLines: e.target.checked})} color="warning" />} label="ЛЕП" /></div>
 
             <SectionTitle><ShieldAlert size={14}/> 5. Обмеження</SectionTitle>
-            <InputGroup $span={1.5}><label>Споруди</label><textarea value={inspectionData.existingStructures} onChange={e => setInspectionData({...inspectionData, existingStructures: e.target.value})} /></InputGroup>
-            <InputGroup $span={1.5}><label>Сусіди</label><textarea value={inspectionData.neighborConstraints} onChange={e => setInspectionData({...inspectionData, neighborConstraints: e.target.value})} /></InputGroup>
+            <InputGroup $span={1.5}><label>Споруди *</label><textarea required value={inspectionData.existingStructures} onChange={e => setInspectionData({...inspectionData, existingStructures: e.target.value})} /></InputGroup>
+            <InputGroup $span={1.5}><label>Сусіди *</label><textarea required value={inspectionData.neighborConstraints} onChange={e => setInspectionData({...inspectionData, neighborConstraints: e.target.value})} /></InputGroup>
 
             <SectionTitle><Construction size={14}/> 6. Висновок *</SectionTitle>
-            <InputGroup $span={3}><label>Рекомендації</label><textarea required value={inspectionData.recommendations} onChange={e => setInspectionData({...inspectionData, recommendations: e.target.value})} /></InputGroup>
+            <InputGroup $span={3}><label>Рекомендації *</label><textarea required value={inspectionData.recommendations} onChange={e => setInspectionData({...inspectionData, recommendations: e.target.value})} /></InputGroup>
           </FormGrid>
         </DialogContent>
         <DialogActions style={{padding: 20}}>
@@ -516,7 +526,7 @@ const TechnicalDashboard = () => {
           severity={notify.severity} 
           variant="filled" 
           style={{ 
-            backgroundColor: '#0288d1', 
+            backgroundColor: notify.severity === 'error' ? '#d32f2f' : '#0288d1', 
             color: '#fff', 
             borderRadius: '12px', 
             fontWeight: 600,

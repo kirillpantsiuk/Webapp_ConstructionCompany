@@ -3,7 +3,8 @@ import styled, { createGlobalStyle } from 'styled-components';
 import { 
   LogOut, Menu, X, LayoutDashboard, Edit, Trash2, Printer, Plus, Home, MapPin, 
   AlertTriangle, Eye, Zap, Truck, Construction, Droplets, Flame, ShieldAlert, 
-  CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info
+  CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info,
+  Map as MapIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -317,21 +318,36 @@ const TechnicalDashboard = () => {
     
     // --- СУВОРА ВАЛІДАЦІЯ УСІХ ПОЛІВ ---
     const { 
-      objectId, relief, electricity, water, gas, accessRoads, 
+      objectId, soilType, groundwaterLevel, relief, electricity, water, gas, accessRoads, 
       storageArea, existingStructures, neighborConstraints, recommendations 
     } = inspectionData;
 
-    if (
-      !objectId || !relief.trim() || !electricity.status || !water.status || 
-      !gas.status || !accessRoads || !storageArea || 
-      !existingStructures.trim() || !neighborConstraints.trim() || !recommendations.trim()
-    ) {
-      setNotify({ open: true, message: 'Помилка: Усі текстові поля та вибори мають бути заповнені!', severity: 'error' });
+    const errors = [];
+    if (!objectId) errors.push("Об'єкт будівництва");
+    if (!soilType) errors.push("Тип ґрунту");
+    if (!groundwaterLevel) errors.push("Рівень вод");
+    if (!relief.trim()) errors.push("Опис рельєфу");
+    if (!electricity.status) errors.push("Статус електроенергії");
+    if (!electricity.phases) errors.push("Кількість фаз");
+    if (!water.status) errors.push("Джерело води");
+    if (!gas.status) errors.push("Газопостачання");
+    if (!accessRoads) errors.push("Тип доріг");
+    if (!storageArea) errors.push("Зона складування");
+    if (!existingStructures.trim()) errors.push("Наявні споруди");
+    if (!neighborConstraints.trim()) errors.push("Обмеження від сусідів");
+    if (!recommendations.trim()) errors.push("Технічний висновок");
+
+    if (errors.length > 0) {
+      setNotify({ 
+        open: true, 
+        message: `Помилка: Заповніть усі обов'язкові поля!`, 
+        severity: 'error' 
+      });
       return;
     }
 
     if (Number(electricity.distance) < 0 || Number(water.depthExpected) < 0) {
-      setNotify({ open: true, message: 'Помилка: Відстань та глибина не можуть бути від’ємними!', severity: 'error' });
+      setNotify({ open: true, message: 'Значення не можуть бути від’ємними!', severity: 'error' });
       return;
     }
 
@@ -353,7 +369,7 @@ const TechnicalDashboard = () => {
       setOpenInspectionForm(false); setEditingId(null); fetchData();
     } catch (err) {
       console.error("Save error:", err);
-      setNotify({ open: true, message: 'Помилка збереження даних на сервері!', severity: 'error' });
+      setNotify({ open: true, message: 'Помилка збереження даних!', severity: 'error' });
     }
   };
 
@@ -366,7 +382,7 @@ const TechnicalDashboard = () => {
       fetchData();
     } catch (err) {
       console.error("Delete error:", err);
-      setNotify({ open: true, message: 'Помилка при видаленні запису!', severity: 'error' });
+      setNotify({ open: true, message: 'Помилка при видаленні!', severity: 'error' });
     }
   };
 
@@ -388,6 +404,7 @@ const TechnicalDashboard = () => {
         <SidebarItem $active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setMenuOpen(false); }}><LayoutDashboard size={20}/> Огляд</SidebarItem>
         <SidebarItem $active={activeTab === 'inspections'} onClick={() => { setActiveTab('inspections'); setMenuOpen(false); }}><Eye size={20}/> Огляд ділянок</SidebarItem>
         <SidebarItem $active={activeTab === 'blueprints'} onClick={() => { setActiveTab('blueprints'); setMenuOpen(false); }}><FileText size={20}/> Креслення</SidebarItem>
+        <SidebarItem $active={activeTab === 'tech_plans'} onClick={() => { setActiveTab('tech_plans'); setMenuOpen(false); }}><MapIcon size={20}/> Тех плани</SidebarItem>
         <SidebarItem $active={activeTab === 'objects'} onClick={() => { setActiveTab('objects'); setMenuOpen(false); }}><Home size={20}/> Об'єкти</SidebarItem>
         <SidebarItem onClick={() => setLogoutDialogOpen(true)} style={{marginTop:'auto', color:'#ef4444'}}>
           <LogOut size={20} color="#ef4444"/> Вийти з системи
@@ -400,7 +417,7 @@ const TechnicalDashboard = () => {
             {!menuOpen && <IconButton onClick={() => setMenuOpen(true)} style={{color: '#38bdf8'}}><Menu /></IconButton>}
             <UserInfoContainer><span className="login">{userInfo?.login}</span><span className="role">Технічний координатор</span></UserInfoContainer>
           </div>
-          {(activeTab === 'inspections' || activeTab === 'blueprints' || activeTab === 'objects') && (
+          {(activeTab === 'inspections' || activeTab === 'blueprints' || activeTab === 'objects' || activeTab === 'tech_plans') && (
             <div style={{position:'relative', width: '350px'}}>
               <Search size={18} style={{position: 'absolute', left: '15px', top: '13px', color: '#38bdf8'}} />
               <StyledInput placeholder="Швидкий пошук..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{paddingLeft: '45px'}} />
@@ -414,6 +431,14 @@ const TechnicalDashboard = () => {
              <Home size={100} color="#1e293b" style={{marginBottom: '20px'}} />
              <h2 style={{fontSize: '32px', fontWeight: 900}}>BUILD CRM System</h2>
              <p style={{color: '#94a3b8', fontSize: '18px'}}>Система управління технічним наглядом.</p>
+          </div>
+        )}
+
+        {activeTab === 'tech_plans' && (
+          <div style={{textAlign:'center', marginTop:'120px'}}>
+             <MapIcon size={100} color="#1e293b" style={{marginBottom: '20px'}} />
+             <h2 style={{fontSize: '32px', fontWeight: 900}}>Технічні плани</h2>
+             <p style={{color: '#94a3b8', fontSize: '18px'}}>Розділ знаходиться у розробці.</p>
           </div>
         )}
 
@@ -477,7 +502,7 @@ const TechnicalDashboard = () => {
             <SectionTitle><Zap size={14}/> 2. Мережі</SectionTitle>
             <InputGroup><label>Електрика *</label><select required value={inspectionData.electricity.status} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, status: e.target.value}})}><option value="Підключено">Підключено</option><option value="Поруч (стовп)">Поруч (стовп)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
             <InputGroup><label>Відстань (м) *</label><input required type="number" value={inspectionData.electricity.distance} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, distance: e.target.value}})}/></InputGroup>
-            <InputGroup><label>Фази *</label><select required value={inspectionData.electricity.phases} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, phases: e.target.value}})}><option value="1-фаза">1-фаза</option> <option value="2-фаза">2-фази</option> <option value="3-фази">3-фази</option><option value="Невідомо">Невідомо</option></select></InputGroup>
+            <InputGroup><label>Фази *</label><select required value={inspectionData.electricity.phases} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, phases: e.target.value}})}><option value="1-фаза">1-фаза</option><option value="2-фаза">2-фази</option><option value="3-фази">3-фази</option><option value="Невідомо">Невідомо</option></select></InputGroup>
 
             <SectionTitle><Droplets size={14}/> 3. Вода та Газ</SectionTitle>
             <InputGroup><label>Вода *</label><select required value={inspectionData.water.status} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, status: e.target.value}})}><option value="Централізоване">Централізоване</option><option value="Свердловина (є)">Свердловина (є)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>

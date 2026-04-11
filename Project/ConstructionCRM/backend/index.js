@@ -11,8 +11,11 @@ const buildingRoutes = require('./routes/buildingRoutes');
 const templateRoutes = require('./routes/templateRoutes'); 
 const paymentRoutes = require('./routes/paymentRoutes');
 const siteInspectionRoutes = require('./routes/siteInspectionRoutes'); 
-// driveRoutes ВИДАЛЕНО, бо ми не використовуємо Google Drive
 const blueprintRoutes = require('./routes/blueprintRoutes'); 
+
+// Нові маршрути для Матеріалів та Технічних Проєктів
+const materialRoutes = require('./routes/materialRoutes');
+const technicalProjectRoutes = require('./routes/technicalProjectRoutes');
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -34,15 +37,18 @@ app.use('/api/building-objects', buildingRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/site-inspections', siteInspectionRoutes);
-// app.use('/api/drive', driveRoutes); // ВИДАЛЕНО
 app.use('/api/blueprints', blueprintRoutes); 
+
+// Реєстрація нових маршрутів
+app.use('/api/materials', materialRoutes);
+app.use('/api/technical-projects', technicalProjectRoutes);
 
 // Статична папка для завантажень (ОБОВ'ЯЗКОВО для відображення креслень)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Головний маршрут
 app.get('/', (req, res) => {
-  res.send('API будівельної CRM працює. Доступні ендпоінти: /api/users, /api/clients, /api/building-objects, /api/blueprints');
+  res.send('API будівельної CRM працює. Доступні ендпоінти: /api/users, /api/clients, /api/building-objects, /api/blueprints, /api/materials, /api/technical-projects');
 });
 
 // Обробка неіснуючих маршрутів (404)

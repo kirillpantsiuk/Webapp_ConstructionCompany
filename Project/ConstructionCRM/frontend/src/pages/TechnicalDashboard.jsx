@@ -45,7 +45,7 @@ const HeaderSection = styled.div` width: 100%; display: flex; justify-content: s
 const UserInfoContainer = styled.div` display: flex; flex-direction: column; .login { font-size: 16px; font-weight: 700; color: white; line-height: 1.2; } .role { font-size: 11px; font-weight: 600; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; } `;
 const StyledInput = styled.input` padding: 12px 18px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; font-size: 14px; width: 100%; &:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); } `;
 
-// --- Таблиці та Бейджі ---
+// --- Таблиці та Статуси ---
 const TableContainer = styled.div` background: rgba(30, 41, 59, 0.3); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; `;
 const StyledTable = styled.table` width: 100%; border-collapse: collapse; color: #e2e8f0; th { background: rgba(15, 23, 42, 0.5); padding: 18px; text-align: left; color: #38bdf8; font-size: 13px; text-transform: uppercase; } td { padding: 18px; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; } tr:hover { background: rgba(56, 189, 248, 0.02); } `;
 const StatusBadge = styled.div` display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; background: ${props => props.$active ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${props => props.$active ? '#4ade80' : '#f87171'}; border: 1px solid ${props => props.$active ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; `;
@@ -56,19 +56,19 @@ const SectionTitle = styled.h4` display: flex; align-items: center; gap: 10px; c
 const FormGrid = styled.form` display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; padding: 25px; `;
 const InputGroup = styled.div` display: flex; flex-direction: column; gap: 6px; grid-column: ${props => props.$span ? `span ${props.$span}` : 'auto'}; label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; } input, select, textarea { padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: white; font-family: inherit; font-size: 14px; } textarea { resize: vertical; min-height: 80px; } input:focus { border-color: #38bdf8; outline: none; } `;
 
-// --- Креслення та Техплани ---
+// --- Майстер техпланів та Креслення ---
 const BlueprintsGrid = styled.div` display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; padding: 10px; `;
 const BlueprintCard = styled.div` background: rgba(30, 41, 59, 0.5); border-radius: 24px; border: 2px solid ${props => (props.$selected ? '#38bdf8' : 'rgba(56, 189, 248, 0.2)')}; padding: 20px; display: flex; flex-direction: column; gap: 10px; transition: 0.3s; cursor: pointer; box-shadow: ${props => (props.$selected ? '0 0 30px rgba(56, 189, 248, 0.15)' : '0 10px 30px rgba(0,0,0,0.3)')}; &:hover { border-color: #38bdf8; transform: translateY(-5px); } `;
 const BlueprintTitleBox = styled.div` display: flex; align-items: center; justify-content: space-between; span { font-size: 14px; font-weight: 800; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.5px; } `;
-const DrawingWrapper = styled.div` width: 100%; height: 320px; background: #0f172a; border-radius: 15px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.4); display: flex; align-items: center; justify-content: center; img { width: 100%; height: 100%; object-fit: contain; } `;
+const DrawingWrapper = styled.div` width: 100%; height: 250px; background: #0f172a; border-radius: 15px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; img { width: 100%; height: 100%; object-fit: contain; } `;
 const PlanFormContainer = styled.div` background: rgba(30, 41, 59, 0.4); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); padding: 40px; margin-top: 20px; min-height: 600px; display: flex; flex-direction: column; gap: 25px; `;
 
-// --- Степер та Вихід ---
+// --- Степер та Вихід (Manager Style) ---
 const ColorlibConnector = styled(StepConnector)(() => ({ [`&.${stepConnectorClasses.alternativeLabel}`]: { top: 22 }, [`&.${stepConnectorClasses.active}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#38bdf8' } }, [`&.${stepConnectorClasses.completed}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#38bdf8' } }, [`& .${stepConnectorClasses.line}`]: { height: 3, border: 0, backgroundColor: '#334155', borderRadius: 1 } }));
 const StepIconRoot = styled.div` background-color: ${props => props.$active || props.$completed ? '#38bdf8' : '#1e293b'}; z-index: 1; color: ${props => props.$active || props.$completed ? '#0a0f16' : '#94a3b8'}; width: 48px; height: 48px; display: flex; border-radius: 50%; justify-content: center; align-items: center; box-shadow: ${props => props.$active ? '0 0 15px rgba(56, 189, 248, 0.4)' : 'none'}; transition: 0.3s; `;
 const OrangeAlertBar = styled.div` background: #f97316; border-radius: 35px; padding: 20px 30px; display: flex; align-items: center; justify-content: space-between; gap: 15px; width: 100%; box-shadow: 0 15px 30px rgba(249, 115, 22, 0.3); `;
 const AlertText = styled.div` display: flex; align-items: center; gap: 12px; color: white; font-size: 18px; font-weight: 800; line-height: 1.2; text-transform: uppercase; `;
-const ConfirmLogoutButton = styled.button` background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 8px 18px; border-radius: 25px; font-size: 14px; font-weight: 900; cursor: pointer; text-transform: uppercase; transition: 0.2s; &:hover { background: white; color: #f97316; } `;
+const ConfirmLogoutButton = styled.button` background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 8px 18px; border-radius: 25px; font-size: 14px; font-weight: 900; cursor: pointer; transition: 0.2s; &:hover { background: white; color: #f97316; } `;
 const CancelLogoutLink = styled.div` color: #94a3b8; font-size: 14px; margin-top: 20px; cursor: pointer; text-decoration: underline; text-align: center; font-weight: 600; &:hover { color: white; } `;
 
 // =============================================================================
@@ -113,7 +113,7 @@ const TechnicalDashboard = () => {
     objectId: '', blueprintId: '',
     steps: {
       s1: { active: true, desc: 'КРОК 01. ПІДГОТОВКА: Визначити межі ділянки, підготувати місце під фундамент та септик.' },
-      s2: { active: true, desc: 'КРОК 02. РОЗМІТКА: Встановити осі будинку на місцевості.' },
+      s2: { active: true, desc: 'КРОК 02. РОЗМІТКА: Встановити ося будинку на місцевості.' },
       s3: { active: true, desc: 'КРОК 03. ЗЕМЛЯНІ РОБОТИ: Риття траншей та котловану.' },
       s4: { active: true, desc: 'КРОК 04. ФУНДАМЕНТ: Заливка бетону, армування.', materials: [] },
       s5: { active: true, desc: 'КРОК 05. МОНТАЖ: Стіни, дах, перекриття.', materials: [] },
@@ -158,7 +158,7 @@ const TechnicalDashboard = () => {
       const updatedSteps = { ...planData.steps };
       updatedSteps.s1.desc = `ПІДГОТОВКА: Визначити межі. Ґрунт - ${inspection.soilType}. Рельєф: ${inspection.relief}. Складування: ${inspection.storageArea}.`;
       updatedSteps.s4.desc = `ФУНДАМЕНТ: Залити бетон. Тип ґрунту: ${inspection.soilType}. Мережі: Електрика (${inspection.electricity.status}), Вода (${inspection.water.status}). Глибина: ${inspection.water.depthExpected}м.`;
-      updatedSteps.s7.desc = `ЗДАЧА: Перевірити системи. Рекомендації координатора: ${inspection.recommendations || 'згідно норм ДБН'}.`;
+      updatedSteps.s7.desc = `ЗДАЧА: Виконати фінальні рекомендації координатора: ${inspection.recommendations || 'згідно норм ДБН'}.`;
       setPlanData({ ...planData, objectId: id, steps: updatedSteps });
       setNotify({ open: true, message: 'Дані огляду автоматично імпортовано!', severity: 'info' });
     } else {
@@ -187,7 +187,7 @@ const TechnicalDashboard = () => {
   };
 
   const finalizePlan = async () => {
-    if (!planData.blueprintId || !planData.objectId) return setNotify({ open: true, message: 'Оберіть об’єкт та креслення!', severity: 'error' });
+    if (!planData.objectId || !planData.blueprintId) return setNotify({ open: true, message: 'Оберіть об’єкт та креслення!', severity: 'error' });
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
     const payload = {
       name: `Проєкт: ${buildingObjects.find(o => o._id === planData.objectId)?.address}`,
@@ -209,7 +209,7 @@ const TechnicalDashboard = () => {
   };
 
   const handleDeleteTechPlan = async (id) => {
-    if (!window.confirm('Видалити цей проєкт?')) return;
+    if (!window.confirm('Ви впевнені, що хочете видалити цей проєкт?')) return;
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
     try {
       await axios.delete(`http://localhost:5000/api/technical-projects/${id}`, config);
@@ -229,7 +229,7 @@ const TechnicalDashboard = () => {
 
     const win = window.open('', '_blank');
     win.document.write(`
-      <html><head><title>ПЛАН_${plan._id}</title><style>
+      <html><head><title>ТЕХПЛАН_${plan._id}</title><style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; font-size: 12px; }
         .header { border-bottom: 4px solid #38bdf8; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
@@ -249,33 +249,33 @@ const TechnicalDashboard = () => {
         @page { size: A4; margin: 15mm; }
       </style></head><body>
         <div class="header">
-          <div><h1>Технічний план будівництва</h1><p style="margin:0; font-weight:700; color:#64748b;">BUILD CRM SYSTEM</p></div>
+          <div><h1>Технічний план будівництва</h1><p style="margin:0; font-weight:700; color:#64748b;">BUILD CRM SYSTEM | ТЕХНІЧНИЙ НАГЛЯД</p></div>
           <div style="text-align:right">№ ${plan._id.toUpperCase().slice(-8)}<br/>Дата: ${new Date(plan.createdAt).toLocaleDateString()}</div>
         </div>
         <div class="info-grid">
           <div class="info-item"><b>Об'єкт будівництва</b>${obj?.address || plan.name}</div>
           <div class="info-item"><b>Площа ділянки</b>${obj?.area || '—'} м²</div>
-          <div class="info-item"><b>Тип ґрунту (Акт огляду)</b>${insp?.soilType || 'Не вказано'}</div>
-          <div class="info-item"><b>Статус електрики</b>${insp?.electricity?.status || '—'}</div>
+          <div class="info-item"><b>Тип ґрунту (згідно акту)</b>${insp?.soilType || 'Не вказано'}</div>
+          <div class="info-item"><b>Статус мереж</b>Електрика: ${insp?.electricity?.status || '—'}</div>
         </div>
         <div class="blueprint-box">
-          <h2 style="font-size:14px; color:#0f172a; margin-top:0;">ПРИЙНЯТЕ ПРОЄКТНЕ РІШЕННЯ: ${blueprint?.name || 'Креслення №1'}</h2>
+          <h2 style="font-size:14px; color:#0f172a; margin-top:0;">ПРИЙНЯТЕ ПРОЄКТНЕ РІШЕННЯ: ${blueprint?.name || 'Креслення'}</h2>
           <img src="http://localhost:5000${blueprint?.imageUrl}" alt="blueprint"/>
         </div>
-        <h2 style="text-transform:uppercase; font-size:16px; border-bottom:2px solid #0f172a; padding-bottom:5px; margin-bottom:20px;">Покроковий графік робіт</h2>
+        <h2 style="text-transform:uppercase; font-size:16px; border-bottom:2px solid #0f172a; padding-bottom:5px; margin-bottom:20px;">Графік та етапи виконання робіт</h2>
         ${Object.values(steps).map((val, index) => val.active ? `
           <div class="step-card">
             <b>Етап 0${index + 1}: ${stepsLabels[index + 1]}</b>
             <p>${val.desc}</p>
             ${val.materials?.length ? `
               <table class="mat-table">
-                <thead><tr><th>Матеріал / Послуга</th><th>Кількість</th><th>Од. вим.</th></tr></thead>
+                <thead><tr><th>Матеріал / Специфікація</th><th>Кількість</th><th>Од. вим.</th></tr></thead>
                 <tbody>${val.materials.map(m => `<tr><td>${m.name}</td><td>${m.quantity}</td><td>${m.unit || 'од'}</td></tr>`).join('')}</tbody>
               </table>` : ''}
           </div>` : '').join('')}
         <div class="footer">
-          <div class="sign"><div class="sign-line"></div>Координатор: ${userInfo?.login}</div>
-          <div class="sign"><div class="sign-line"></div>Замовник (Власник)</div>
+          <div class="sign"><div class="sign-line"></div>Технічний координатор</div>
+          <div class="sign"><div class="sign-line"></div>Власник об'єкта</div>
         </div>
         <script>window.onload = () => { window.print(); window.close(); }</script>
       </body></html>
@@ -315,6 +315,10 @@ const TechnicalDashboard = () => {
 
   const handleSubmitInspection = async (e) => {
     e.preventDefault();
+    if (inspectionData.electricity.distance < 0 || inspectionData.water.depthExpected < 0) {
+        setNotify({ open: true, message: 'Числа не можуть бути від’ємними', severity: 'error' });
+        return;
+    }
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       const payload = { ...inspectionData, objectId: inspectionData.objectId?._id || inspectionData.objectId };
@@ -322,7 +326,7 @@ const TechnicalDashboard = () => {
       else await axios.post('http://localhost:5000/api/site-inspections', payload, config);
       setOpenInspectionForm(false); setEditingId(null); fetchData();
       setNotify({ open: true, message: 'Успішно збережено', severity: 'success' });
-    } catch { setNotify({ open: true, message: 'Помилка валідації', severity: 'error' }); }
+    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка валідації', severity: 'error' }); }
   };
 
   const handleDeleteInspection = async (id) => {
@@ -332,14 +336,13 @@ const TechnicalDashboard = () => {
       await axios.delete(`http://localhost:5000/api/site-inspections/${id}`, config);
       fetchData();
       setNotify({ open: true, message: 'Запис видалено', severity: 'info' });
-    } catch { console.error("Error deleting"); }
+    } catch (err) { console.error(err); }
   };
 
   const objectsWithInspection = useMemo(() => buildingObjects.filter(obj => inspections.some(ins => (ins.objectId?._id || ins.objectId) === obj._id)), [buildingObjects, inspections]);
   const filteredBlueprints = useMemo(() => blueprintsList.filter(bp => bp.name.toLowerCase().includes(searchTerm.toLowerCase())), [blueprintsList, searchTerm]);
   const filteredInspections = useMemo(() => inspections.filter(ins => { const obj = buildingObjects.find(o => o._id === (ins.objectId?._id || ins.objectId)); return (obj?.address || '').toLowerCase().includes(searchTerm.toLowerCase()); }), [inspections, buildingObjects, searchTerm]);
 
-  // Фільтрація матеріалів для етапу (Stage 4, 5, 6)
   const materialsByStage = useMemo(() => {
     if (activeStep >= 4 && activeStep <= 6) {
       return materials.filter(m => m.stage === activeStep);
@@ -412,8 +415,8 @@ const TechnicalDashboard = () => {
                           <p style={{color:'#38bdf8', fontWeight:800, marginBottom:'10px'}}><ShoppingCart size={18}/> СПЕЦИФІКАЦІЯ МАТЕРІАЛІВ (ФІЛЬТР: ЕТАП 0{activeStep})</p>
                           <TableContainer style={{maxHeight:'250px', overflowY:'auto', background:'rgba(15, 23, 42, 0.4)', borderRadius:'15px'}}>
                             <Table size="small">
-                              <TableHead><TableRow><TableCell style={{color:'#94a3b8'}}>Назва</TableCell><TableCell style={{color:'#94a3b8'}}>Кількість</TableCell><TableCell/></TableRow></TableHead>
-                              <TableBody>{materialsByStage.map(m => { const selected = planData.steps[`s${activeStep}`].materials?.find(sm => sm._id === m._id); return (<TableRow key={m._id} style={{background: selected ? 'rgba(56, 189, 248, 0.05)' : 'transparent'}}><TableCell style={{color:'white'}}>{m.name}</TableCell><TableCell>{selected && <input type="number" value={selected.quantity} onChange={e => handleQtyChange(`s${activeStep}`, m._id, e.target.value)} style={{width:'60px', background:'#1e293b', color:'white', border:'1px solid #334155'}}/>}</TableCell><TableCell style={{textAlign:'right'}}><Button size="small" onClick={() => handleToggleMaterial(`s${activeStep}`, m)} variant={selected ? "contained" : "outlined"} color={selected ? "success" : "primary"}>{selected ? "OK" : "+"}</Button></TableCell></TableRow>) })}</TableBody>
+                              <TableHead><TableRow><TableCell style={{color:'#94a3b8'}}>Назва</TableCell><TableCell style={{color:'#94a3b8'}}>Кількість</TableCell><TableCell style={{color:'#94a3b8'}}>Од. вим.</TableCell><TableCell/></TableRow></TableHead>
+                              <TableBody>{materialsByStage.map(m => { const selected = planData.steps[`s${activeStep}`].materials?.find(sm => sm._id === m._id); return (<TableRow key={m._id} style={{background: selected ? 'rgba(56, 189, 248, 0.05)' : 'transparent'}}><TableCell style={{color:'white'}}>{m.name}</TableCell><TableCell>{selected && <input type="number" value={selected.quantity} min="1" onChange={e => handleQtyChange(`s${activeStep}`, m._id, e.target.value)} style={{width:'60px', background:'#1e293b', color:'white', border:'1px solid #334155'}}/>}</TableCell><TableCell style={{color:'#94a3b8'}}>{m.unit}</TableCell><TableCell style={{textAlign:'right'}}><Button size="small" onClick={() => handleToggleMaterial(`s${activeStep}`, m)} variant={selected ? "contained" : "outlined"} color={selected ? "success" : "primary"}>{selected ? "OK" : "+"}</Button></TableCell></TableRow>) })}</TableBody>
                             </Table>
                           </TableContainer>
                         </div>
@@ -482,17 +485,22 @@ const TechnicalDashboard = () => {
 
             <SectionTitle><Zap size={14}/> 2. Електрика</SectionTitle>
             <InputGroup><label>Статус *</label><select required value={inspectionData.electricity.status} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, status: e.target.value}})}><option value="Підключено">Підключено</option><option value="Поруч (стовп)">Поруч (стовп)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
-            <InputGroup><label>Відстань (м) *</label><input required type="number" value={inspectionData.electricity.distance} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, distance: e.target.value}})}/></InputGroup>
+            <InputGroup><label>Відстань (м) *</label><input required type="number" min="0" value={inspectionData.electricity.distance} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, distance: e.target.value}})}/></InputGroup>
             <InputGroup><label>Фази *</label><select required value={inspectionData.electricity.phases} onChange={e => setInspectionData({...inspectionData, electricity: {...inspectionData.electricity, phases: e.target.value}})}><option value="1-фаза">1-фаза</option><option value="2-фази">2-фази</option><option value="3-фази">3-фази</option><option value="Невідомо">Невідомо</option></select></InputGroup>
 
             <SectionTitle><Droplets size={14}/> 3. Вода та Газ</SectionTitle>
-            <InputGroup><label>Вода *</label><select required value={inspectionData.water.status} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, status: e.target.value}})}><option value="Централізоване">Централізоване</option><option value="Свердловина (є)">Свердловина (є)</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
-            <InputGroup><label>Глибина (м)</label><input type="number" value={inspectionData.water.depthExpected} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, depthExpected: e.target.value}})}/></InputGroup>
+            <InputGroup><label>Вода *</label><select required value={inspectionData.water.status} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, status: e.target.value}})}><option value="Централізоване">Централізоване</option><option value="Свердловина">Свердловина</option><option value="Відсутнє">Відсутнє</option></select></InputGroup>
+            <InputGroup><label>Глибина (м)</label><input type="number" min="0" value={inspectionData.water.depthExpected} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, depthExpected: e.target.value}})}/></InputGroup>
             <InputGroup><label>Газ</label><select value={inspectionData.gas.status} onChange={e => setInspectionData({...inspectionData, gas: {status: e.target.value}})}><option value="Відсутнє">Відсутнє</option><option value="Є по вулиці">Є по вулиці</option></select></InputGroup>
 
             <SectionTitle><Truck size={14}/> 4. Логістика будівництва</SectionTitle>
             <InputGroup><label>Дорожнє покриття *</label><select required value={inspectionData.accessRoads} onChange={e => setInspectionData({...inspectionData, accessRoads: e.target.value})}>{['Асфальтоване', 'Бетонні плити', 'Грунтові дороги'].map(r => <option key={r} value={r}>{r}</option>)}</select></InputGroup>
-            <InputGroup><label>Складування *</label><input value={inspectionData.storageArea} onChange={e => setInspectionData({...inspectionData, storageArea: e.target.value})} /></InputGroup>
+            {/* ВИПРАВЛЕНО НА ВИПАДАЮЧИЙ СПИСОК */}
+            <InputGroup><label>Складування *</label><select required value={inspectionData.storageArea} onChange={e => setInspectionData({...inspectionData, storageArea: e.target.value})}>
+                <option value="Достатньо місця">Достатньо місця</option>
+                <option value="Обмежений простір">Обмежений простір</option>
+                <option value="Місце відсутнє">Місце відсутнє</option>
+            </select></InputGroup>
             <div style={{display:'flex', gap:'20px', alignItems:'center', paddingLeft:'10px'}}><FormControlLabel control={<Switch checked={inspectionData.truckAccess} onChange={e => setInspectionData({...inspectionData, truckAccess: e.target.checked})} color="primary" />} label="Доступ фури" /><FormControlLabel control={<Switch checked={inspectionData.powerLines} onChange={e => setInspectionData({...inspectionData, powerLines: e.target.checked})} color="warning" />} label="ЛЕП" /></div>
 
             <SectionTitle><ShieldAlert size={14}/> 5. Обмеження</SectionTitle>

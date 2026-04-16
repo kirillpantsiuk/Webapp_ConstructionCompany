@@ -5,7 +5,8 @@ import {
   AlertTriangle, Eye, Zap, Truck, Construction, Droplets, Flame, ShieldAlert, 
   CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info,
   Map as MapIcon, ChevronRight, ChevronLeft, Check, ClipboardCheck, ShoppingCart,
-  Home as HouseIcon, Wrench, Hammer, PackagePlus, ListChecks, ListFilter
+  Home as HouseIcon, Wrench, Hammer, PackagePlus, ListChecks, ListFilter,
+  Calendar, Users, CalendarDays, List
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -90,6 +91,7 @@ const TechnicalDashboard = () => {
   const [openInspectionForm, setOpenInspectionForm] = useState(false);
   const [notify, setNotify] = useState({ open: false, message: '', severity: 'info' });
   
+  // Базові стани
   const [buildingObjects, setBuildingObjects] = useState([]);
   const [inspections, setInspections] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -99,12 +101,19 @@ const TechnicalDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [loadingDrawings, setLoadingDrawings] = useState(false);
 
-  // Специфічні стани для "Матеріали та Інструменти"
+  // Стани для "Матеріали та Інструменти"
   const [addMaterialsList, setAddMaterialsList] = useState([]);
   const [toolsList, setToolsList] = useState([]);
   const [confirmedSupplies, setConfirmedSupplies] = useState([]);
   const [selectedSupplyObject, setSelectedSupplyObject] = useState('');
   const [extraItemsSelection, setExtraItemsSelection] = useState([]);
+
+  // Стани для Календарного планування та Робітників
+  const [workers, setWorkers] = useState([]); 
+  const [calendarPlans, setCalendarPlans] = useState([]);
+  const [selectedCalendarObject, setSelectedCalendarObject] = useState('');
+  const [currentCalendarPlan, setCurrentCalendarPlan] = useState(null);
+  const [calendarViewMode, setCalendarViewMode] = useState('form'); // 'form' | 'list'
 
   const userInfo = useMemo(() => {
     const data = localStorage.getItem('userInfo');
@@ -142,7 +151,7 @@ const TechnicalDashboard = () => {
     try {
       setLoading(true);
       setLoadingDrawings(true);
-      const [resObjs, resInsp, resBlue, resMats, resProjects, resAddMats, resTools, resSupplies] = await Promise.all([
+      const [resObjs, resInsp, resBlue, resMats, resProjects, resAddMats, resTools, resSupplies, resWorkers, resCalPlans] = await Promise.all([
         axios.get('http://localhost:5000/api/building-objects', config),
         axios.get('http://localhost:5000/api/site-inspections', config),
         axios.get('http://localhost:5000/api/blueprints', config).catch(() => ({ data: [] })),
@@ -150,7 +159,9 @@ const TechnicalDashboard = () => {
         axios.get('http://localhost:5000/api/technical-projects', config).catch(() => ({ data: [] })),
         axios.get('http://localhost:5000/api/additional-materials', config).catch(() => ({ data: [] })),
         axios.get('http://localhost:5000/api/tools', config).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/project-supplies', config).catch(() => ({ data: [] }))
+        axios.get('http://localhost:5000/api/project-supplies', config).catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/workers', config).catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/calendar-plans', config).catch(() => ({ data: [] }))
       ]);
       setBuildingObjects(Array.isArray(resObjs.data) ? resObjs.data : []);
       setInspections(Array.isArray(resInsp.data) ? resInsp.data : []);
@@ -160,6 +171,8 @@ const TechnicalDashboard = () => {
       setAddMaterialsList(Array.isArray(resAddMats.data) ? resAddMats.data : []);
       setToolsList(Array.isArray(resTools.data) ? resTools.data : []);
       setConfirmedSupplies(Array.isArray(resSupplies.data) ? resSupplies.data : []);
+      setWorkers(Array.isArray(resWorkers.data) ? resWorkers.data : []);
+      setCalendarPlans(Array.isArray(resCalPlans.data) ? resCalPlans.data : []);
     } catch (err) { 
       console.error(err);
       setNotify({ open: true, message: 'Помилка мережі: Бекенд недоступний', severity: 'error' });
@@ -168,7 +181,6 @@ const TechnicalDashboard = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- ЛОГІКА ВИХОДУ ---
   const handleLogout = () => { 
     localStorage.removeItem('userInfo'); 
     navigate('/login'); 
@@ -283,6 +295,57 @@ const TechnicalDashboard = () => {
     win.document.close();
   };
 
+  const handlePrintCalendarPlan = (plan) => {
+    const obj = buildingObjects.find(o => o._id === (plan.objectId?._id || plan.objectId));
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>ГРАФІК_${plan._id}</title><style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; font-size: 12px; }
+        h1 { border-bottom: 4px solid #38bdf8; padding-bottom: 10px; text-transform: uppercase; font-size: 22px; margin-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+        th { background: #f8fafc; text-transform: uppercase; font-size: 11px; color: #64748b; }
+        .stage-title { margin-top: 30px; font-size: 16px; color: #0f172a; text-transform: uppercase; background: #e0f2fe; padding: 8px; border-left: 4px solid #38bdf8; }
+        @page { size: A4 landscape; margin: 15mm; }
+      </style></head><body>
+        <h1>Календарний графік виконання робіт</h1>
+        <p style="font-size:14px;">Об'єкт: <b>${obj?.address || '—'}</b> | Створено: ${new Date(plan.createdAt).toLocaleDateString()}</p>
+        ${plan.stages.map(stage => `
+          <div class="stage-title">${stage.name}</div>
+          ${stage.tasks.length > 0 ? `
+            <table>
+              <thead><tr><th width="35%">Завдання</th><th width="15%">Початок</th><th width="15%">Закінчення</th><th width="35%">Відповідальні / Робітники</th></tr></thead>
+              <tbody>
+                ${stage.tasks.map(task => {
+                  const workersList = task.assignedWorkers.map(wItem => {
+                    const id = typeof wItem === 'object' ? wItem._id : wItem;
+                    const w = workers.find(x => x._id === id);
+                    return w ? `${w.lastName} ${w.firstName[0]}.` : '';
+                  }).filter(Boolean).join(', ');
+                  return `
+                    <tr>
+                      <td><b>${task.title}</b></td>
+                      <td>${task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'}</td>
+                      <td>${task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</td>
+                      <td>${workersList || '<i>Не призначено</i>'}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          ` : '<p style="color: #94a3b8; font-style: italic;">Завдання ще не сформовані</p>'}
+        `).join('')}
+        <div style="margin-top: 60px; display: flex; justify-content: space-between;">
+          <div style="border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 5px;">Технічний координатор</div>
+          <div style="border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 5px;">Виконроб об'єкта</div>
+        </div>
+        <script>window.onload = () => { window.print(); window.close(); }</script>
+      </body></html>
+    `);
+    win.document.close();
+  };
+
   // --- ОБРОБНИКИ ВИДАЛЕННЯ ---
   const handleDeleteInspection = async (id) => {
     if(!window.confirm('Видалити цей запис огляду?')) return;
@@ -291,7 +354,7 @@ const TechnicalDashboard = () => {
       await axios.delete(`http://localhost:5000/api/site-inspections/${id}`, config); 
       fetchData(); 
       setNotify({ open: true, message: 'Запис огляду видалено успішно!', severity: 'info' });
-    } catch (err) { console.error("Error delete inspection", err); }
+    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка видалення', severity: 'error' }); }
   };
 
   const handleDeleteTechPlan = async (id) => {
@@ -301,7 +364,7 @@ const TechnicalDashboard = () => {
       await axios.delete(`http://localhost:5000/api/technical-projects/${id}`, config); 
       setTechPlansList(techPlansList.filter(p => p._id !== id));
       setNotify({ open: true, message: 'Техплан видалено!', severity: 'info' });
-    } catch (err) { console.error("Error delete project", err); }
+    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка видалення', severity: 'error' }); }
   };
 
   const handleDeleteSupply = async (id) => {
@@ -311,17 +374,183 @@ const TechnicalDashboard = () => {
       await axios.delete(`http://localhost:5000/api/project-supplies/${id}`, config);
       fetchData();
       setNotify({ open: true, message: 'Відомість комплектації успішно видалена!', severity: 'info' });
-    } catch (err) {
-      console.error("Error delete supply", err);
-      setNotify({ open: true, message: 'Помилка при видаленні відомості', severity: 'error' });
+    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка при видаленні відомості', severity: 'error' }); }
+  };
+
+  const handleDeleteCalendarPlan = async (id) => {
+    if (!window.confirm('Видалити цей план-графік? Робітників потрібно буде перепризначити вручну.')) return;
+    const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+    try {
+      await axios.delete(`http://localhost:5000/api/calendar-plans/${id}`, config);
+      fetchData();
+      setNotify({ open: true, message: 'План-графік видалено!', severity: 'info' });
+    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка видалення', severity: 'error' }); }
+  };
+
+  // --- ФІЛЬТРИ ТА МЕМО-ЗНАЧЕННЯ З ГЛОБАЛЬНИМ ПОШУКОМ ---
+  const filteredBlueprints = useMemo(() => blueprintsList.filter(bp => bp.name.toLowerCase().includes(searchTerm.toLowerCase())), [blueprintsList, searchTerm]);
+  
+  const filteredInspections = useMemo(() => inspections.filter(ins => { 
+    const obj = buildingObjects.find(o => o._id === (ins.objectId?._id || ins.objectId)); 
+    return (obj?.address || '').toLowerCase().includes(searchTerm.toLowerCase()); 
+  }), [inspections, buildingObjects, searchTerm]);
+  
+  const filteredTechPlans = useMemo(() => techPlansList.filter(plan => {
+    const address = plan.objectId?.address || plan.name || '';
+    return address.toLowerCase().includes(searchTerm.toLowerCase());
+  }), [techPlansList, searchTerm]);
+
+  const filteredCalendarPlans = useMemo(() => calendarPlans.filter(plan => {
+    const address = plan.objectId?.address || '';
+    return address.toLowerCase().includes(searchTerm.toLowerCase());
+  }), [calendarPlans, searchTerm]);
+
+  const filteredSupplies = useMemo(() => confirmedSupplies.filter(supply => {
+    const address = supply.objectId?.address || '';
+    return address.toLowerCase().includes(searchTerm.toLowerCase());
+  }), [confirmedSupplies, searchTerm]);
+
+  const filteredWorkers = useMemo(() => workers.filter(w => {
+    const fullName = `${w.lastName} ${w.firstName}`.toLowerCase();
+    return fullName.includes(searchTerm.toLowerCase()) || w.specialization.toLowerCase().includes(searchTerm.toLowerCase());
+  }), [workers, searchTerm]);
+
+  const filteredObjects = useMemo(() => buildingObjects.filter(obj => 
+    obj.address.toLowerCase().includes(searchTerm.toLowerCase())
+  ), [buildingObjects, searchTerm]);
+
+  const objectsWithInspection = useMemo(() => buildingObjects.filter(obj => inspections.some(ins => (ins.objectId?._id || ins.objectId) === obj._id)), [buildingObjects, inspections]);
+  const materialsByStage = useMemo(() => (activeStep >= 4 && activeStep <= 6) ? materials.filter(m => m.stage === activeStep) : [], [materials, activeStep]);
+
+  // --- ЛОГІКА КАЛЕНДАРНОГО ПЛАНУВАННЯ ---
+  const handleSelectObjectForCalendar = (id) => {
+    setSelectedCalendarObject(id);
+    if (!id) {
+      setCurrentCalendarPlan(null);
+      return;
+    }
+    const existing = calendarPlans.find(p => (p.objectId?._id || p.objectId) === id);
+    if (existing) {
+      setCurrentCalendarPlan(JSON.parse(JSON.stringify(existing)));
+    } else {
+      const techPlan = techPlansList.find(p => (p.objectId?._id || p.objectId) === id);
+      if (techPlan && techPlan.fullPlanData) {
+        const newStages = Object.values(techPlan.fullPlanData.steps)
+          .filter(s => s.active)
+          .map(s => ({ name: s.desc.split(':')[0], tasks: [] }));
+        setCurrentCalendarPlan({ objectId: id, stages: newStages });
+      } else {
+        setCurrentCalendarPlan(null);
+        setNotify({ open: true, message: 'Спершу сформуйте Техплан!', severity: 'warning' });
+      }
     }
   };
 
-  // --- ФІЛЬТРИ ТА МЕМО-ЗНАЧЕННЯ ---
-  const filteredBlueprints = useMemo(() => blueprintsList.filter(bp => bp.name.toLowerCase().includes(searchTerm.toLowerCase())), [blueprintsList, searchTerm]);
-  const filteredInspections = useMemo(() => inspections.filter(ins => { const obj = buildingObjects.find(o => o._id === (ins.objectId?._id || ins.objectId)); return (obj?.address || '').toLowerCase().includes(searchTerm.toLowerCase()); }), [inspections, buildingObjects, searchTerm]);
-  const objectsWithInspection = useMemo(() => buildingObjects.filter(obj => inspections.some(ins => (ins.objectId?._id || ins.objectId) === obj._id)), [buildingObjects, inspections]);
-  const materialsByStage = useMemo(() => (activeStep >= 4 && activeStep <= 6) ? materials.filter(m => m.stage === activeStep) : [], [materials, activeStep]);
+  const handleAddTaskToStage = (stageIdx) => {
+    const updated = { ...currentCalendarPlan };
+    updated.stages[stageIdx].tasks.push({ title: '', startDate: '', endDate: '', assignedWorkers: [] });
+    setCurrentCalendarPlan(updated);
+  };
+
+  const handleTaskChange = (stageIdx, taskIdx, field, value) => {
+    const updated = { ...currentCalendarPlan };
+    updated.stages[stageIdx].tasks[taskIdx][field] = value;
+    setCurrentCalendarPlan(updated);
+  };
+
+  const handleAddWorkerToTask = (sIdx, tIdx, workerId) => {
+    if (!workerId) return;
+    const updated = { ...currentCalendarPlan };
+    const task = updated.stages[sIdx].tasks[tIdx];
+    
+    if (!task.assignedWorkers) task.assignedWorkers = [];
+    const alreadyAssigned = task.assignedWorkers.some(w => (typeof w === 'object' ? w._id : w) === workerId);
+    
+    if (!alreadyAssigned) {
+      task.assignedWorkers.push(workerId);
+      setCurrentCalendarPlan(updated);
+    }
+  };
+
+  const handleRemoveWorkerFromTask = (sIdx, tIdx, workerId) => {
+    const updated = { ...currentCalendarPlan };
+    const task = updated.stages[sIdx].tasks[tIdx];
+    task.assignedWorkers = task.assignedWorkers.filter(w => (typeof w === 'object' ? w._id : w) !== workerId);
+    setCurrentCalendarPlan(updated);
+  };
+
+  const handleSaveCalendarPlan = async () => {
+    if (!currentCalendarPlan || !currentCalendarPlan.objectId) {
+      return setNotify({ open: true, message: 'Помилка: не обрано об\'єкт', severity: 'error' });
+    }
+
+    let isValid = true;
+    let errorMessage = '';
+    const assignedWorkerIds = new Set();
+    let totalTasks = 0;
+
+    for (const stage of currentCalendarPlan.stages) {
+      for (const task of stage.tasks) {
+        totalTasks++;
+        
+        if (!task.title || !task.title.trim()) { 
+          isValid = false; 
+          errorMessage = `Заповніть назву завдання у етапі: "${stage.name}"`; 
+          break; 
+        }
+        if (!task.startDate || !task.endDate) { 
+          isValid = false; 
+          errorMessage = `Вкажіть дати для завдання: "${task.title}"`; 
+          break;
+        }
+        
+        const start = new Date(task.startDate);
+        const end = new Date(task.endDate);
+        if (start > end) { 
+          isValid = false; 
+          errorMessage = `Дата закінчення не може бути раніше за початок: "${task.title}"`; 
+          break;
+        }
+
+        if (!task.assignedWorkers || task.assignedWorkers.length === 0) {
+          isValid = false;
+          errorMessage = `Призначте хоча б одного робітника для: "${task.title}"`;
+          break;
+        }
+
+        task.assignedWorkers.forEach(w => {
+          const wId = typeof w === 'object' ? w._id : w;
+          assignedWorkerIds.add(wId);
+        });
+      }
+      if (!isValid) break;
+    }
+
+    if (isValid && totalTasks === 0) {
+      isValid = false;
+      errorMessage = 'План-графік порожній! Додайте хоча б одне завдання перед збереженням.';
+    }
+
+    if (!isValid) {
+      return setNotify({ open: true, message: errorMessage, severity: 'error' });
+    }
+
+    const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+    try {
+      await axios.post('http://localhost:5000/api/calendar-plans', currentCalendarPlan, config);
+      for (let workerId of assignedWorkerIds) {
+        await axios.patch(`http://localhost:5000/api/workers/${workerId}/status`, { isAvailable: false }, config).catch(e => console.error(e));
+      }
+      setNotify({ open: true, message: 'План-графік збережено! Робітникам змінено статус.', severity: 'success' });
+      fetchData();
+      setCalendarViewMode('list');
+      setSelectedCalendarObject('');
+      setCurrentCalendarPlan(null);
+    } catch (err) { 
+      console.error(err);
+      setNotify({ open: true, message: 'Помилка збереження плану', severity: 'error' }); 
+    }
+  };
 
   // --- ЛОГІКА МАЙСТРА ПЛАНІВ ---
   const handleObjectSelect = (id) => {
@@ -389,8 +618,11 @@ const TechnicalDashboard = () => {
 
   const handleToggleExtraItem = (item, type) => {
     const exists = extraItemsSelection.find(i => i._id === item._id);
-    if (exists) setExtraItemsSelection(extraItemsSelection.filter(i => i._id !== item._id));
-    else setExtraItemsSelection([...extraItemsSelection, { ...item, type, quantity: 1 }]);
+    if (exists) {
+      setExtraItemsSelection(extraItemsSelection.filter(i => i._id !== item._id));
+    } else {
+      setExtraItemsSelection([...extraItemsSelection, { ...item, type, quantity: 1 }]);
+    }
   };
 
   const handleExtraItemQtyChange = (id, qty) => {
@@ -438,6 +670,10 @@ const TechnicalDashboard = () => {
         <SidebarItem $active={activeTab === 'inspections'} onClick={() => { setActiveTab('inspections'); setMenuOpen(false); }}><Eye size={20}/> Огляд ділянок</SidebarItem>
         <SidebarItem $active={activeTab === 'blueprints'} onClick={() => { setActiveTab('blueprints'); setMenuOpen(false); }}><FileText size={20}/> Креслення</SidebarItem>
         <SidebarItem $active={activeTab === 'tech_plans'} onClick={() => { setActiveTab('tech_plans'); setMenuOpen(false); }}><MapIcon size={20}/> Тех плани</SidebarItem>
+        
+        <SidebarItem $active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setMenuOpen(false); }}><Calendar size={20}/> Календарне планування</SidebarItem>
+        <SidebarItem $active={activeTab === 'workers'} onClick={() => { setActiveTab('workers'); setMenuOpen(false); }}><Users size={20}/> Робітники</SidebarItem>
+
         <SidebarItem $active={activeTab === 'supplies'} onClick={() => { setActiveTab('supplies'); setMenuOpen(false); }}><Wrench size={20}/> Матеріали та Інструменти</SidebarItem>
         <SidebarItem $active={activeTab === 'tech_plans_table'} onClick={() => { setActiveTab('tech_plans_table'); setMenuOpen(false); }}><ClipboardCheck size={20}/> Список планів</SidebarItem>
         <SidebarItem $active={activeTab === 'objects'} onClick={() => { setActiveTab('objects'); setMenuOpen(false); }}><Home size={20}/> Об'єкти</SidebarItem>
@@ -461,6 +697,126 @@ const TechnicalDashboard = () => {
               <div style={{textAlign:'center', marginTop:'120px'}}><HouseIcon size={100} color="#1e293b" style={{marginBottom: '20px'}} /><h2>BUILD CRM System</h2><p style={{color:'#94a3b8'}}>Система управління технічним наглядом.</p></div>
             )}
 
+            {/* ВКЛАДКА РОБІТНИКІВ */}
+            {activeTab === 'workers' && (
+              <div style={{animation: 'fadeIn 0.3s'}}>
+                <SectionTitle><Users size={18}/> Реєстр робітників та спецтехніки</SectionTitle>
+                <TableContainer>
+                  <StyledTable>
+                    <thead>
+                      <tr>
+                        <th>ПІБ Робітника</th>
+                        <th>Спеціалізація</th>
+                        <th>Контакти</th>
+                        <th>Статус</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredWorkers.map(w => (
+                        <tr key={w._id}>
+                          <td><b>{w.lastName} {w.firstName}</b></td>
+                          <td>{w.specialization}</td>
+                          <td>{w.contacts}</td>
+                          <td>
+                            <StatusBadge $active={w.isAvailable}>
+                              {w.isAvailable ? 'Вільний' : 'Зайнятий'}
+                            </StatusBadge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </StyledTable>
+                </TableContainer>
+              </div>
+            )}
+
+            {/* ВКЛАДКА КАЛЕНДАРНЕ ПЛАНУВАННЯ */}
+            {activeTab === 'calendar' && (
+              <div style={{animation: 'fadeIn 0.3s'}}>
+                <div style={{display: 'flex', gap: '15px', marginBottom: '20px'}}>
+                  <Button variant={calendarViewMode === 'form' ? "contained" : "outlined"} style={{background: calendarViewMode === 'form' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'form' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => setCalendarViewMode('form')}><CalendarDays size={16} style={{marginRight: '8px'}}/> Формування</Button>
+                  <Button variant={calendarViewMode === 'list' ? "contained" : "outlined"} style={{background: calendarViewMode === 'list' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'list' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => setCalendarViewMode('list')}><List size={16} style={{marginRight: '8px'}}/> Список графіків</Button>
+                </div>
+
+                {calendarViewMode === 'form' && (
+                  <>
+                    <SectionTitle><Calendar size={18}/> Графік виконання робіт</SectionTitle>
+                    <div style={{background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '30px'}}>
+                       <label style={{fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '8px', fontWeight: 700}}>ОБЕРІТЬ ОБ'ЄКТ ДЛЯ ПЛАНУВАННЯ</label>
+                       <select style={{width: '100%', padding: '15px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '12px'}} value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
+                          <option value="">Виберіть будівництво з техпланом...</option>
+                          {buildingObjects.filter(o => techPlansList.some(p => (p.objectId?._id || p.objectId) === o._id)).map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
+                       </select>
+                    </div>
+
+                    {currentCalendarPlan && (
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                        {currentCalendarPlan.stages.map((stage, sIdx) => (
+                          <div key={sIdx} style={{background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(56, 189, 248, 0.2)'}}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+                               <h3 style={{margin: 0, color: '#38bdf8', fontSize: '16px', textTransform: 'uppercase'}}>{stage.name}</h3>
+                               <Button size="small" variant="outlined" onClick={() => handleAddTaskToStage(sIdx)}><Plus size={14}/> Додати завдання</Button>
+                            </div>
+                            {stage.tasks.length > 0 && (
+                              <TableContainer style={{marginBottom: 0, overflow: 'visible'}}>
+                                <StyledTable>
+                                  <thead><tr><th width="35%">Завдання</th><th width="15%">Початок</th><th width="15%">Кінець</th><th width="30%">Призначити робітників</th><th style={{textAlign:'right'}}>Дія</th></tr></thead>
+                                  <tbody>
+                                    {stage.tasks.map((task, tIdx) => (
+                                      <tr key={tIdx}>
+                                        <td style={{verticalAlign: 'top'}}><input style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%'}} value={task.title} onChange={(e) => handleTaskChange(sIdx, tIdx, 'title', e.target.value)} placeholder="Назва робіт..."/></td>
+                                        <td style={{verticalAlign: 'top'}}><input type="date" style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px'}} value={task.startDate ? task.startDate.split('T')[0] : ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'startDate', e.target.value)}/></td>
+                                        <td style={{verticalAlign: 'top'}}><input type="date" style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px'}} value={task.endDate ? task.endDate.split('T')[0] : ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'endDate', e.target.value)}/></td>
+                                        <td style={{verticalAlign: 'top'}}>
+                                          <div style={{display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px'}}>
+                                            {task.assignedWorkers?.map(wId => {
+                                              const actualId = typeof wId === 'object' ? wId._id : wId;
+                                              const w = workers.find(wo => wo._id === actualId);
+                                              return w ? (
+                                                <span key={actualId} style={{background:'#38bdf8', color:'#0a0f16', padding:'4px 8px', borderRadius:'6px', fontSize:'11px', display:'flex', alignItems:'center', gap:'6px', fontWeight: '700'}}>
+                                                  {w.lastName} {w.firstName[0]}. <X size={12} style={{cursor:'pointer'}} onClick={() => handleRemoveWorkerFromTask(sIdx, tIdx, actualId)} />
+                                                </span>
+                                              ) : null;
+                                            })}
+                                          </div>
+                                          <select 
+                                            style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '10px', width: '100%', fontSize: '13px'}} 
+                                            value="" 
+                                            onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
+                                          >
+                                            <option value="" disabled>+ Обрати вільного робітника...</option>
+                                            {workers.filter(w => w.isAvailable && (!task.assignedWorkers || !task.assignedWorkers.some(aw => (typeof aw === 'object' ? aw._id : aw) === w._id))).map(w => (
+                                              <option key={w._id} value={w._id}>{w.lastName} {w.firstName} ({w.specialization})</option>
+                                            ))}
+                                          </select>
+                                        </td>
+                                        <td style={{textAlign:'right', verticalAlign: 'top'}}><IconButton style={{color:'#ef4444'}} onClick={() => { const upd = {...currentCalendarPlan}; upd.stages[sIdx].tasks.splice(tIdx, 1); setCurrentCalendarPlan(upd); }}><Trash2 size={16}/></IconButton></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </StyledTable>
+                              </TableContainer>
+                            )}
+                          </div>
+                        ))}
+                        <ActionButton onClick={handleSaveCalendarPlan} style={{width: '100%', height: '60px', justifyContent: 'center', marginTop: '10px'}}><ClipboardCheck size={20}/> ЗАТВЕРДИТИ ГРАФІК ТА ПРИЗНАЧИТИ РОБІТНИКІВ</ActionButton>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {calendarViewMode === 'list' && (
+                  <>
+                    <SectionTitle><ListFilter size={18}/> Затверджені графіки об'єктів</SectionTitle>
+                    <TableContainer><StyledTable>
+                      <thead><tr><th>Об'єкт</th><th>Дата створення</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
+                      <tbody>{filteredCalendarPlans.map(plan => (<tr key={plan._id}><td><b>{plan.objectId?.address}</b></td><td>{new Date(plan.createdAt).toLocaleDateString()}</td><td style={{textAlign: 'right'}}><IconButton onClick={() => handlePrintCalendarPlan(plan)} style={{color: '#38bdf8'}} title="Друк графіка"><Printer size={18}/></IconButton><IconButton onClick={() => handleDeleteCalendarPlan(plan._id)} style={{color: '#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton></td></tr>))}</tbody>
+                    </StyledTable></TableContainer>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* ВКЛАДКА: МАТЕРІАЛИ ТА ІНСТРУМЕНТИ */}
             {activeTab === 'supplies' && (
               <div style={{animation: 'fadeIn 0.3s'}}>
@@ -474,12 +830,21 @@ const TechnicalDashboard = () => {
 
                     {selectedSupplyObject && (
                       <>
-                        <p style={{color: '#fbbf24', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', marginBottom: '10px'}}>Витратні матеріали:</p>
+                        <div style={{marginBottom: '20px', padding: '15px', background: 'rgba(56, 189, 248, 0.05)', borderRadius: '12px'}}>
+                          <p style={{color: '#38bdf8', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', marginBottom: '10px'}}>Основні матеріали з техплану:</p>
+                          {materialsFromCurrentPlan.length > 0 ? materialsFromCurrentPlan.map((m, idx) => (
+                            <div key={idx} style={{fontSize: '13px', display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                              <span>• {m.name}</span><b>{m.quantity} {m.unit}</b>
+                            </div>
+                          )) : <p style={{fontSize: '12px', color: '#94a3b8'}}>У техплані не вказано матеріалів</p>}
+                        </div>
+
+                        <p style={{color: '#fbbf24', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', marginBottom: '10px'}}>Додаткові витратні матеріали:</p>
                         <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px'}}>
                           {addMaterialsList.map(m => (<Button key={m._id} size="small" variant={extraItemsSelection.some(i => i._id === m._id) ? "contained" : "outlined"} onClick={() => handleToggleExtraItem(m, 'Додатковий')}>{m.name}</Button>))}
                         </div>
                         <p style={{color: '#4ade80', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', marginBottom: '10px'}}>Інструменти та обладнання:</p>
-                        <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '25px'}}>
+                        <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '30px'}}>
                           {toolsList.map(t => (<Button key={t._id} color="success" size="small" variant={extraItemsSelection.some(i => i._id === t._id) ? "contained" : "outlined"} onClick={() => handleToggleExtraItem(t, 'Інструмент')}>{t.name}</Button>))}
                         </div>
 
@@ -511,7 +876,7 @@ const TechnicalDashboard = () => {
                     <SectionTitle><FolderOpen size={18}/> Затверджені відомості комплектації</SectionTitle>
                     <TableContainer><StyledTable>
                       <thead><tr><th>Об'єкт</th><th>Дата</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
-                      <tbody>{confirmedSupplies.map(s => (<tr key={s._id}><td><b>{s.objectId?.address}</b></td><td>{new Date(s.createdAt).toLocaleDateString()}</td><td style={{textAlign: 'right'}}><IconButton onClick={() => handlePrintSupply(s)} style={{color: '#38bdf8'}} title="Друк"><Printer size={18}/></IconButton><IconButton onClick={() => handleDeleteSupply(s._id)} style={{color: '#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton></td></tr>))}</tbody>
+                      <tbody>{filteredSupplies.map(s => (<tr key={s._id}><td><b>{s.objectId?.address}</b></td><td>{new Date(s.createdAt).toLocaleDateString()}</td><td style={{textAlign: 'right'}}><IconButton onClick={() => handlePrintSupply(s)} style={{color: '#38bdf8'}} title="Друк"><Printer size={18}/></IconButton><IconButton onClick={() => handleDeleteSupply(s._id)} style={{color: '#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton></td></tr>))}</tbody>
                     </StyledTable></TableContainer>
                   </div>
                 </div>
@@ -521,24 +886,38 @@ const TechnicalDashboard = () => {
             {activeTab === 'blueprints' && (
               <div style={{animation: 'fadeIn 0.3s'}}>
                 <SectionTitle><FileText size={18}/> Архітектурні креслення</SectionTitle>
-                <BlueprintsGrid>
-                  {blueprintsList.map(doc => (
-                    <BlueprintCard key={doc._id}>
-                      <BlueprintTitleBox><span>{doc.name}</span><IconButton onClick={() => window.open(`http://localhost:5000${doc.imageUrl}`, '_blank')}><Maximize2 size={16} color="#38bdf8"/></IconButton></BlueprintTitleBox>
-                      <DrawingWrapper><img src={`http://localhost:5000${doc.imageUrl}`} alt={doc.name} /></DrawingWrapper>
-                    </BlueprintCard>
-                  ))}
-                </BlueprintsGrid>
+                {loadingDrawings ? <div style={{textAlign:'center'}}><Loader2 className="animate-spin" color="#38bdf8" /></div> : (
+                  <BlueprintsGrid>
+                    {filteredBlueprints.map(doc => (
+                      <BlueprintCard key={doc._id}>
+                        <BlueprintTitleBox><span>{doc.name}</span><IconButton onClick={() => window.open(`http://localhost:5000${doc.imageUrl}`, '_blank')}><Maximize2 size={16} color="#38bdf8"/></IconButton></BlueprintTitleBox>
+                        <DrawingWrapper><img src={`http://localhost:5000${doc.imageUrl}`} alt={doc.name} /></DrawingWrapper>
+                      </BlueprintCard>
+                    ))}
+                  </BlueprintsGrid>
+                )}
               </div>
             )}
 
             {activeTab === 'inspections' && (
-              <TableContainer><StyledTable>
+              <TableContainer>
+                <StyledTable>
                   <thead><tr><th>Адреса</th><th>Грунт</th><th>Електрика</th><th>Транспорт</th><th style={{textAlign:'right'}}>Дії</th></tr></thead>
                   <tbody>{filteredInspections.map(ins => { const obj = buildingObjects.find(o => o._id === (ins.objectId?._id || ins.objectId)); return (
-                    <tr key={ins._id}><td><b>{obj?.address || '—'}</b></td><td>{ins.soilType}</td><td>{ins.electricity?.status}</td><td><StatusBadge $active={ins.truckAccess}>{ins.truckAccess ? 'ТАК' : 'НІ'}</StatusBadge></td><td style={{textAlign:'right'}}><IconButton onClick={() => handlePrintInspection(ins)} style={{color:'#38bdf8'}} title="Друк"><Printer size={18}/></IconButton><IconButton style={{color:'#fbbf24'}} onClick={() => {setInspectionData(ins); setEditingId(ins._id); setOpenInspectionForm(true);}}><Edit size={18}/></IconButton><IconButton onClick={() => handleDeleteInspection(ins._id)} style={{color:'#ef4444'}}><Trash2 size={18}/></IconButton></td></tr>
+                    <tr key={ins._id}>
+                      <td><b>{obj?.address || '—'}</b></td>
+                      <td>{ins.soilType}</td>
+                      <td>{ins.electricity?.status}</td>
+                      <td><StatusBadge $active={ins.truckAccess}>{ins.truckAccess ? 'ТАК' : 'НІ'}</StatusBadge></td>
+                      <td style={{textAlign:'right'}}>
+                        <IconButton onClick={() => handlePrintInspection(ins)} style={{color:'#38bdf8'}} title="Друк акту"><Printer size={18}/></IconButton>
+                        <IconButton style={{color:'#fbbf24'}} onClick={() => {setInspectionData(ins); setEditingId(ins._id); setOpenInspectionForm(true);}}><Edit size={18}/></IconButton>
+                        <IconButton onClick={() => handleDeleteInspection(ins._id)} style={{color:'#ef4444'}}><Trash2 size={18}/></IconButton>
+                      </td>
+                    </tr>
                   )})}</tbody>
-              </StyledTable></TableContainer>
+                </StyledTable>
+              </TableContainer>
             )}
 
             {activeTab === 'tech_plans' && (
@@ -551,7 +930,7 @@ const TechnicalDashboard = () => {
                     <div style={{animation: 'fadeIn 0.3s'}}>
                       <SectionTitle>КРОК 00. ОБ'ЄКТ ТА КРЕСЛЕННЯ</SectionTitle>
                       <select style={{width:'100%', padding:'15px', background:'#0f172a', color:'white', borderRadius:'10px', border:'1px solid #334155', marginBottom:'25px'}} value={planData.objectId} onChange={e => handleObjectSelect(e.target.value)}>
-                        <option value="">Виберіть ділянку після огляду...</option>
+                        <option value="">Виберіть ділянку...</option>
                         {objectsWithInspection.map(obj => <option key={obj._id} value={obj._id}>{obj.address}</option>)}
                       </select>
                       <BlueprintsGrid>{filteredBlueprints.map(bp => (<BlueprintCard key={bp._id} $selected={planData.blueprintId === bp._id} onClick={() => setPlanData({...planData, blueprintId: bp._id})}><DrawingWrapper><img src={`http://localhost:5000${bp.imageUrl}`} alt="bp"/></DrawingWrapper><BlueprintTitleBox><span>{bp.name}</span></BlueprintTitleBox></BlueprintCard>))}</BlueprintsGrid>
@@ -566,9 +945,9 @@ const TechnicalDashboard = () => {
                       <textarea style={{width:'100%', padding:'15px', background:'#0f172a', color:'white', borderRadius:'15px', border:'1px solid #334155', height:'120px', marginTop:'10px'}} value={planData.steps[`s${activeStep}`].desc} onChange={e => setPlanData({...planData, steps: {...planData.steps, [`s${activeStep}`]: {...planData.steps[`s${activeStep}`], desc: e.target.value}}})} />
                       {(activeStep >= 4 && activeStep <= 6) && (
                         <div style={{marginTop:'20px'}}>
-                          <p style={{color:'#38bdf8', fontWeight:800}}>СПЕЦИФІКАЦІЯ МАТЕРІАЛІВ (ЕТАП 0{activeStep}):</p>
+                          <p style={{color:'#38bdf8', fontWeight:800}}>СПЕЦИФІКАЦІЯ МАТЕРІАЛІВ:</p>
                           <Table size="small">
-                            <TableBody>{materialsByStage.map(m => { const selected = planData.steps[`s${activeStep}`].materials?.find(sm => sm._id === m._id); return (<TableRow key={m._id}><TableCell style={{color:'white'}}>{m.name}</TableCell><TableCell>{selected && <input type="number" value={selected.quantity} onChange={e => handleQtyChange(`s${activeStep}`, m._id, e.target.value)} style={{width:'60px', background:'#1e293b', color:'white', border:'1px solid #334155'}}/>}</TableCell><TableCell><Button size="small" onClick={() => handleToggleMaterial(`s${activeStep}`, m)} variant={selected ? "contained" : "outlined"}>{selected ? "OK" : "+"}</Button></TableCell></TableRow>) })}</TableBody>
+                            <TableBody>{materialsByStage.map(m => { const sel = planData.steps[`s${activeStep}`].materials?.find(sm => sm._id === m._id); return (<TableRow key={m._id}><TableCell style={{color:'white'}}>{m.name}</TableCell><TableCell>{sel && <input type="number" value={sel.quantity} onChange={e => handleQtyChange(`s${activeStep}`, m._id, e.target.value)} style={{width:'60px', background:'#1e293b', color:'white', border:'1px solid #334155'}}/>}</TableCell><TableCell><Button size="small" onClick={() => handleToggleMaterial(`s${activeStep}`, m)} variant={sel ? "contained" : "outlined"}>{sel ? "OK" : "+"}</Button></TableCell></TableRow>) })}</TableBody>
                           </Table>
                         </div>
                       )}
@@ -576,7 +955,7 @@ const TechnicalDashboard = () => {
                   )}
                   <div style={{marginTop:'auto', display:'flex', justifyContent:'space-between', borderTop:'1px solid rgba(255,255,255,0.05)', paddingTop:'20px'}}>
                     <Button onClick={() => setActiveStep(s => s - 1)} disabled={activeStep === 0} style={{color:'#94a3b8'}}><ChevronLeft/> Назад</Button>
-                    {activeStep === 7 ? <ActionButton onClick={finalizePlan}><ClipboardCheck/> ЗБЕРЕГТИ ПЛАН</ActionButton> : <ActionButton onClick={() => setActiveStep(s => s + 1)} disabled={activeStep === 0 && (!planData.blueprintId || !planData.objectId)}>Далі <ChevronRight/></ActionButton>}
+                    {activeStep === 7 ? <ActionButton onClick={finalizePlan}><ClipboardCheck/> ЗБЕРЕГТИ ПЛАН</ActionButton> : <ActionButton onClick={() => setActiveStep(s => s + 1)}>Далі <ChevronRight/></ActionButton>}
                   </div>
                 </PlanFormContainer>
               </div>
@@ -584,22 +963,21 @@ const TechnicalDashboard = () => {
 
             {activeTab === 'tech_plans_table' && (
               <TableContainer><StyledTable>
-                  <thead><tr><th>Об'єкт будівництва</th><th>Дата</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
-                  <tbody>{techPlansList.map(plan => (<tr key={plan._id}><td><b>{plan.objectId?.address || plan.name}</b></td><td>{new Date(plan.createdAt).toLocaleDateString()}</td><td style={{textAlign:'right'}}><IconButton onClick={() => handlePrintPlan(plan)} style={{color:'#38bdf8'}} title="Друк"><Printer size={20}/></IconButton><IconButton onClick={() => handleDeleteTechPlan(plan._id)} style={{color:'#ef4444'}} title="Видалити"><Trash2 size={20}/></IconButton></td></tr>))}</tbody>
+                  <thead><tr><th>Об'єкт будівництва</th><th>Дата створення</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
+                  <tbody>{filteredTechPlans.map(plan => (<tr key={plan._id}><td><b>{plan.objectId?.address || plan.name}</b></td><td>{new Date(plan.createdAt).toLocaleDateString()}</td><td style={{textAlign:'right'}}><IconButton onClick={() => handlePrintPlan(plan)} style={{color:'#38bdf8'}} title="Друк"><Printer size={20}/></IconButton><IconButton onClick={() => handleDeleteTechPlan(plan._id)} style={{color:'#ef4444'}} title="Видалити"><Trash2 size={20}/></IconButton></td></tr>))}</tbody>
               </StyledTable></TableContainer>
             )}
 
             {activeTab === 'objects' && (
               <TableContainer><StyledTable>
-                <thead><tr><th>Адреса</th><th>Площа</th><th>GPS</th></tr></thead>
-                <tbody>{buildingObjects.map(obj => (<tr key={obj._id}><td><b>{obj.address}</b></td><td>{obj.area} м²</td><td><code>{obj.coordinates || '—'}</code></td></tr>))}</tbody>
+                <thead><tr><th>Адреса</th><th>Площа</th><th>GPS Координати</th></tr></thead>
+                <tbody>{filteredObjects.map(obj => (<tr key={obj._id}><td><b>{obj.address}</b></td><td>{obj.area} м²</td><td><code>{obj.coordinates || '—'}</code></td></tr>))}</tbody>
               </StyledTable></TableContainer>
             )}
           </>
         )}
       </MainContent>
 
-      {/* ДІАЛОГ АКТУ ОГЛЯДУ (МАКСИМАЛЬНИЙ) */}
       <Dialog open={openInspectionForm} onClose={() => setOpenInspectionForm(false)} maxWidth="lg" fullWidth PaperProps={{style:{backgroundColor:'#1e293b', color:'white', borderRadius:'24px'}}}>
         <DialogContent>
           <FormGrid onSubmit={handleSubmitInspection} id="insp-form">
@@ -619,7 +997,7 @@ const TechnicalDashboard = () => {
             <InputGroup><label>Глибина (м)</label><input type="number" min="0" value={inspectionData.water.depthExpected} onChange={e => setInspectionData({...inspectionData, water: {...inspectionData.water, depthExpected: e.target.value}})}/></InputGroup>
             <InputGroup><label>Газ</label><select value={inspectionData.gas.status} onChange={e => setInspectionData({...inspectionData, gas: {status: e.target.value}})}><option value="Відсутнє">Відсутнє</option><option value="Є по вулиці">Є по вулиці</option></select></InputGroup>
 
-            <SectionTitle><Truck size={14}/> 4. Логістика</SectionTitle>
+            <SectionTitle><Truck size={14}/> 4. Логістика будівництва</SectionTitle>
             <InputGroup><label>Дорожнє покриття *</label><select required value={inspectionData.accessRoads} onChange={e => setInspectionData({...inspectionData, accessRoads: e.target.value})}>{['Асфальтоване', 'Бетонні плити', 'Грунтові дороги'].map(r => <option key={r} value={r}>{r}</option>)}</select></InputGroup>
             <InputGroup><label>Складування *</label><select required value={inspectionData.storageArea} onChange={e => setInspectionData({...inspectionData, storageArea: e.target.value})}><option value="Достатньо місця">Достатньо місця</option><option value="Обмежений простір">Обмежений простір</option><option value="Місце відсутнє">Місце відсутнє</option></select></InputGroup>
             <div style={{display:'flex', gap:'20px', alignItems:'center', paddingLeft:'10px'}}><FormControlLabel control={<Switch checked={inspectionData.truckAccess} onChange={e => setInspectionData({...inspectionData, truckAccess: e.target.checked})} color="primary" />} label="Доступ фури" /><FormControlLabel control={<Switch checked={inspectionData.powerLines} onChange={e => setInspectionData({...inspectionData, powerLines: e.target.checked})} color="warning" />} label="ЛЕП" /></div>

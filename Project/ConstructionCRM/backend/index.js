@@ -17,10 +17,16 @@ const blueprintRoutes = require('./routes/blueprintRoutes');
 const materialRoutes = require('./routes/materialRoutes');
 const technicalProjectRoutes = require('./routes/technicalProjectRoutes');
 
-// НОВІ МАРШРУТИ: Додаткові матеріали, Інструменти та Відомості комплектації
+// Маршрути для Додаткових матеріалів, Інструментів та Відомостей комплектації
 const additionalMaterialRoutes = require('./routes/additionalMaterialRoutes');
 const toolRoutes = require('./routes/toolRoutes');
 const projectSupplyRoutes = require('./routes/projectSupplyRoutes');
+
+// Маршрути для Робітників
+const workerRoutes = require('./routes/workerRoutes');
+
+// НОВИЙ МАРШРУТ: Календарне планування (Графіки робіт)
+const calendarPlanRoutes = require('./routes/calendarPlanRoutes');
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -48,27 +54,34 @@ app.use('/api/blueprints', blueprintRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/technical-projects', technicalProjectRoutes);
 
-// НОВІ ЕНДПОЇНТИ
+// Ендпоінти комплектації
 app.use('/api/additional-materials', additionalMaterialRoutes);
 app.use('/api/tools', toolRoutes);
 app.use('/api/project-supplies', projectSupplyRoutes);
 
+// Реєстрація робітників
+app.use('/api/workers', workerRoutes);
+
+// РЕЄСТРАЦІЯ КАЛЕНДАРНИХ ПЛАНІВ
+app.use('/api/calendar-plans', calendarPlanRoutes);
+
 // --- Статичні файли ---
-// Обов'язково для відображення креслень (blueprints)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- Головний маршрут для перевірки ---
 app.get('/', (req, res) => {
   res.send(`
-    <h1>API будівельної CRM працює</h1>
-    <p>Доступні основні ендпоінти:</p>
+    <h1>🚀 API будівельної CRM працює</h1>
+    <p>Доступні ендпоінти:</p>
     <ul>
-      <li>/api/users</li>
-      <li>/api/building-objects</li>
-      <li>/api/technical-projects</li>
-      <li>/api/project-supplies (Матеріали та Інструменти)</li>
-      <li>/api/tools</li>
-      <li>/api/additional-materials</li>
+      <li>/api/users - Користувачі</li>
+      <li>/api/building-objects - Об'єкти будівництва</li>
+      <li>/api/technical-projects - Технічні плани</li>
+      <li>/api/calendar-plans - Календарні графіки робіт</li>
+      <li>/api/workers - Реєстр робітників</li>
+      <li>/api/project-supplies - Відомості комплектації</li>
+      <li>/api/tools - База інструментів</li>
+      <li>/api/additional-materials - Додаткові матеріали</li>
     </ul>
   `);
 });
@@ -82,7 +95,7 @@ app.use((req, res, next) => {
   next(error);
 });
 
-// Глобальний обробник помилок (Error Middleware)
+// Глобальний обробник помилок
 app.use((err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   res.status(statusCode).json({
@@ -96,10 +109,10 @@ const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Сервер запущено на порту ${PORT}`);
-  console.log(`📡 База даних підключена, API готове до роботи.`);
+  console.log(`📡 API готове до планування об'єктів.`);
 });
 
-// Обробка критичних помилок (наприклад, збій БД)
+// Обробка критичних помилок
 process.on('unhandledRejection', (err, promise) => {
   console.error(`🔴 КРИТИЧНА ПОМИЛКА: ${err.message}`);
   server.close(() => process.exit(1));

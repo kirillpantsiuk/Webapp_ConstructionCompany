@@ -514,14 +514,46 @@ const TechnicalDashboard = () => {
   };
 
   const handleDeleteCalendarPlan = async (id) => {
-    if (!window.confirm('Видалити цей план-графік? Робітників потрібно буде перепризначити вручну.')) return;
-    const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-    try {
-      await axios.delete(`http://localhost:5000/api/calendar-plans/${id}`, config);
-      fetchData();
-      setNotify({ open: true, message: 'План-графік видалено!', severity: 'info' });
-    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка видалення', severity: 'error' }); }
-  };
+  if (!window.confirm('Видалити план-графік? Робітників буде переведено у статус Вільний.')) return;
+  const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+  
+  try {
+    // 1. Знаходимо план, який збираємось видалити, у локальному стейті
+    const planToDelete = calendarPlans.find(p => p._id === id);
+    
+    if (planToDelete) {
+      const workersToFree = new Set(); // Використовуємо Set, щоб уникнути дублікатів
+      
+      // 2. Проходимося по всіх етапах та завданнях, збираючи ID робітників
+      planToDelete.stages.forEach(stage => {
+        stage.tasks.forEach(task => {
+          if (task.assignedWorkers) {
+            task.assignedWorkers.forEach(w => {
+              const workerId = typeof w === 'object' ? w._id : w;
+              workersToFree.add(workerId);
+            });
+          }
+        });
+      });
+      
+      // 3. Відправляємо запити на бекенд для звільнення кожного робітника
+      for (let wId of workersToFree) {
+        await axios.patch(`http://localhost:5000/api/workers/${wId}/status`, { isAvailable: true }, config)
+          .catch(e => console.error('Помилка оновлення статусу робітника:', e));
+      }
+    }
+
+    // 4. Тільки після звільнення людей видаляємо сам графік
+    await axios.delete(`http://localhost:5000/api/calendar-plans/${id}`, config);
+    
+    // 5. Оновлюємо таблиці
+    fetchData();
+    setNotify({ open: true, message: 'План видалено, робітників звільнено!', severity: 'info' });
+  } catch (err) { 
+    console.error(err); 
+    setNotify({ open: true, message: 'Помилка видалення', severity: 'error' }); 
+  }
+};
 
   // --- ФІЛЬТРИ ТА МЕМО З ПОШУКОМ ---
   const filteredBlueprints = useMemo(() => blueprintsList.filter(bp => bp.name.toLowerCase().includes(searchTerm.toLowerCase())), [blueprintsList, searchTerm]);

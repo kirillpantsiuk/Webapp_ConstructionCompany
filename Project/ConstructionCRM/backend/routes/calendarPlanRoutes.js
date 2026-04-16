@@ -28,10 +28,11 @@ router.post('/', protect, async (req, res) => {
       return res.status(400).json({ message: 'Не вказано об\'єкт будівництва' });
     }
 
+    // ВИПРАВЛЕНО: замість { new: true } тепер використовуємо { returnDocument: 'after' }
     const plan = await CalendarPlan.findOneAndUpdate(
       { objectId },
       { stages },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     res.status(201).json(plan);

@@ -11,12 +11,12 @@ const siteInspectionSchema = mongoose.Schema({
   // 1. ГЕОЛОГІЯ ТА ГРУНТ
   soilType: { 
     type: String, 
-    enum: ['Піщаний', 'Глинистий', 'Суглинок', 'Чорнозем', 'Кам’янистий', 'Насипний'],
+    enum: ['Піщаний', 'Глинистий', 'Чорнозем', 'Кам’янистий'], // Синхронізовано з фронтендом
     default: 'Чорнозем'
   },
   groundwaterLevel: { 
     type: String, 
-    enum: ['Низький (>3м)', 'Середній (1.5-3м)', 'Високий (<1.5м)'],
+    enum: ['Низький (>3м)', 'Середній (1.5-3м)', 'Високий'], // Синхронізовано
     default: 'Низький (>3м)' 
   },
   relief: { 
@@ -41,7 +41,7 @@ const siteInspectionSchema = mongoose.Schema({
   water: {
     status: { 
       type: String, 
-      enum: ['Центральне', 'Свердловина (є)', 'Потрібна свердловина', 'Відсутнє', 'Централізоване'], 
+      enum: ['Централізоване', 'Свердловина', 'Відсутнє'], // Синхронізовано
       default: 'Відсутнє' 
     },
     depthExpected: { type: Number, default: 0 }
@@ -49,7 +49,7 @@ const siteInspectionSchema = mongoose.Schema({
   gas: {
     status: { 
       type: String, 
-      enum: ['На ділянці', 'По вулиці', 'Відсутнє'], 
+      enum: ['Є по вулиці', 'Відсутнє'], // Синхронізовано
       default: 'Відсутнє' 
     }
   },
@@ -57,8 +57,7 @@ const siteInspectionSchema = mongoose.Schema({
   // 3. ЛОГІСТИКА ТА ДОСТУП
   accessRoads: { 
     type: String, 
-    // ВИПРАВЛЕНО: Додано варіанти, які реально приходять з форми
-    enum: ['Асфальт', 'Бетонні плити', 'Грунтові дороги', 'Грунтова (суха)', 'Грунтова (ускладнена)', 'Відсутня', 'Дороги відсутні'],
+    enum: ['Асфальтоване', 'Бетонні плити', 'Грунтові дороги'], // Синхронізовано
     default: 'Грунтові дороги'
   },
   truckAccess: { 
@@ -97,7 +96,7 @@ const siteInspectionSchema = mongoose.Schema({
   inspectorId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User',
-    required: true // Щоб завжди знати, хто створив акт
+    required: false // Вимкнено, щоб не ламати наявний фронтенд
   }
 }, { 
   timestamps: true 

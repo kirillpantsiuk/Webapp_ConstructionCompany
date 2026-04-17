@@ -251,46 +251,183 @@ const TechnicalDashboard = () => {
   };
 
   // --- ФУНКЦІЯ ГЕНЕРАЦІЇ HTML ГАНТА (ДЛЯ ДРУКУ) ---
-  const generateGanttHtmlString = (plan) => {
+const generateGanttHtmlString = (plan) => {
     let minDate = new Date(8640000000000000);
     let maxDate = new Date(-8640000000000000);
-    let hasTasks = false;
+    let tasksCount = 0;
 
+    // Визначаємо діапазон дат
     plan.stages.forEach(s => s.tasks.forEach(t => {
-      if(t.startDate && t.endDate) {
-        hasTasks = true;
-        const start = new Date(t.startDate);
-        const end = new Date(t.endDate);
-        if(start < minDate) minDate = start;
-        if(end > maxDate) maxDate = end;
-      }
+      tasksCount++;
+      const start = new Date(t.startDate);
+      const end = new Date(t.endDate);
+      if (start < minDate) minDate = start;
+      if (end > maxDate) maxDate = end;
     }));
 
-    let ganttHtml = '';
-    if (hasTasks) {
-      const totalDuration = maxDate.getTime() - minDate.getTime() || 1;
-      ganttHtml += `<div style="position:relative; width:100%; border-left:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; margin-top:20px; padding-bottom: 20px;">`;
-      
-      plan.stages.forEach((stage) => {
-        ganttHtml += `<div style="margin-top:15px; font-weight:800; font-size: 13px; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 3px;">${stage.name}</div>`;
-        stage.tasks.forEach(task => {
-          if(task.startDate && task.endDate) {
-            const tStart = new Date(task.startDate).getTime();
-            const tEnd = new Date(task.endDate).getTime();
-            const leftPct = ((tStart - minDate.getTime()) / totalDuration) * 100;
-            const widthPct = ((tEnd - tStart) / totalDuration) * 100;
-            
-            ganttHtml += `<div style="margin-top:8px; height:24px; position:relative; width:100%; background:#f8fafc; border-radius: 4px;">
-              <div style="position:absolute; left:${leftPct}%; width:${Math.max(widthPct, 2)}%; height:100%; background:#38bdf8; border-radius:4px; display:flex; align-items:center; padding:0 8px; font-size:10px; font-weight:700; color:#000000; overflow:hidden; white-space:nowrap; border:1px solid #0ea5e9;">${task.title}</div>
-            </div>`;
-          }
-        });
-      });
-      ganttHtml += `</div>`;
-    }
-    return ganttHtml;
-  };
+    // Додаємо запас 2 дні для відступів
+    minDate = new Date(minDate.setDate(minDate.getDate() - 2));
+    maxDate = new Date(maxDate.setDate(maxDate.getDate() + 2));
 
+    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+    const dayWidth = 35; // Компактна ширина дня
+    const tableWidth = 400; // Оптимізована ширина таблиці
+
+    return `
+      <html>
+      <head>
+        <title>Звіт: Графік робіт - ${plan.objectId?.address || ''}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+          
+          body { 
+            margin: 0; padding: 30px; 
+            background-color: #ffffff; color: #1e293b; 
+            font-family: 'Inter', sans-serif;
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact;
+          }
+
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 15px;
+          }
+
+          .title-area h1 { margin: 0; font-size: 22px; color: #1e293b; text-transform: uppercase; }
+          .title-area p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
+
+          .stat-badge {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #3b82f6;
+          }
+
+          .gantt-container { 
+            display: flex; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 12px; 
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+          }
+
+          /* ТАБЛИЦЯ ЗЛІВА */
+          .gantt-table { width: ${tableWidth}px; border-right: 1px solid #e2e8f0; flex-shrink: 0; background: #fff; }
+          .t-header { 
+            height: 50px; background: #f8fafc; color: #64748b; 
+            display: flex; align-items: center; font-weight: 700; 
+            font-size: 10px; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;
+          }
+          .t-row { 
+            height: 40px; display: flex; align-items: center; 
+            border-bottom: 1px solid #f1f5f9; font-size: 12px;
+          }
+          .t-row:nth-child(even) { background: #fcfcfc; }
+          .c-name { width: 220px; padding: 0 15px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .c-date { width: 90px; text-align: center; color: #64748b; font-size: 11px; }
+
+          /* ЧАРТ СПРАВА */
+          .gantt-timeline { flex-grow: 1; overflow-x: auto; background: #fff; }
+          .timeline-header { height: 50px; background: #f8fafc; display: flex; border-bottom: 1px solid #e2e8f0; }
+          .day-cell { 
+            width: ${dayWidth}px; flex-shrink: 0; border-right: 1px solid #f1f5f9; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+          }
+          .d-name { font-size: 9px; color: #94a3b8; text-transform: uppercase; }
+          .d-num { font-size: 11px; color: #1e293b; font-weight: 700; }
+
+          .timeline-body { position: relative; width: ${totalDays * dayWidth}px; }
+          .grid-row { height: 40px; border-bottom: 1px solid #f1f5f9; position: relative; }
+          .grid-row:nth-child(even) { background: #fcfcfc; }
+
+          .task-bar { 
+            position: absolute; height: 24px; top: 8px; 
+            background: #3b82f6; border-radius: 6px; 
+            display: flex; align-items: center; padding: 0 10px;
+            color: white; font-size: 10px; font-weight: 700;
+            white-space: nowrap;
+          }
+
+          @media print {
+            body { padding: 0; }
+            .gantt-container { border-radius: 0; box-shadow: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title-area">
+            <h1>Календарний план робіт</h1>
+            <p>Об'єкт: <b>${plan.objectId?.address || 'Не вказано'}</b></p>
+          </div>
+          <div class="stat-badge">
+            Завдань у звіті: ${tasksCount}
+          </div>
+        </div>
+
+        <div class="gantt-container">
+          <div class="gantt-table">
+            <div class="t-header">
+              <div class="c-name" style="width: 220px;">Етап та завдання</div>
+              <div class="c-date">Початок</div>
+              <div class="c-date">Кінець</div>
+            </div>
+            ${plan.stages.map(stage => 
+              stage.tasks.map(task => `
+                <div class="t-row">
+                  <div class="c-name">${stage.name}: ${task.title}</div>
+                  <div class="c-date">${new Date(task.startDate).toLocaleDateString('uk-UA')}</div>
+                  <div class="c-date">${new Date(task.endDate).toLocaleDateString('uk-UA')}</div>
+                </div>
+              `).join('')
+            ).join('')}
+          </div>
+
+          <div class="gantt-timeline">
+            <div class="timeline-header">
+              ${Array.from({ length: totalDays }).map((_, i) => {
+                const date = new Date(minDate);
+                date.setDate(date.getDate() + i);
+                return `
+                  <div class="day-cell">
+                    <span class="d-name">${date.toLocaleDateString('uk-UA', { weekday: 'short' })}</span>
+                    <span class="d-num">${date.getDate()}</span>
+                  </div>`;
+              }).join('')}
+            </div>
+            <div class="timeline-body">
+              ${plan.stages.map(stage => 
+                stage.tasks.map(task => {
+                  const start = new Date(task.startDate);
+                  const end = new Date(task.endDate);
+                  const offset = Math.floor((start - minDate) / (1000 * 60 * 60 * 24));
+                  const width = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
+                  return `
+                    <div class="grid-row">
+                      <div class="task-bar" style="left: ${offset * dayWidth}px; width: ${width * dayWidth}px;">
+                        ${task.title}
+                      </div>
+                    </div>`;
+                }).join('')
+              ).join('')}
+            </div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px; text-align: right; color: #94a3b8; font-size: 10px;">
+          Build CRM System • Сформовано: ${new Date().toLocaleString('uk-UA')}
+        </div>
+      </body>
+      </html>
+    `;
+  };
   // --- ОБРОБНИКИ ДРУКУ ---
   const handlePrintInspection = useCallback((ins) => {
     const obj = buildingObjects.find(o => o._id === (ins.objectId?._id || ins.objectId));
@@ -623,7 +760,7 @@ const TechnicalDashboard = () => {
     setCurrentCalendarPlan(updated);
   };
 
-  const handleSaveCalendarPlan = async () => {
+ const handleSaveCalendarPlan = async () => {
     if (!currentCalendarPlan || !currentCalendarPlan.objectId) {
       return setNotify({ open: true, message: 'Помилка: не обрано об\'єкт', severity: 'error' });
     }
@@ -657,18 +794,51 @@ const TechnicalDashboard = () => {
 
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
     try {
-      await axios.post('http://localhost:5000/api/calendar-plans', currentCalendarPlan, config);
+      // 1. Зберігаємо календарний план
+      const planRes = await axios.post('http://localhost:5000/api/calendar-plans', currentCalendarPlan, config);
+      const newPlanId = planRes.data._id;
+
+      // 2. Формуємо дані для моделі GanttChart
+      const ganttTasksList = [];
+      const ganttTimelinesMap = {};
+
+      currentCalendarPlan.stages.forEach(stage => {
+        stage.tasks.forEach(task => {
+          // ВИПРАВЛЕННЯ: Видаляємо крапки з ключів Map, замінюючи їх на дефіси
+          const cleanStageName = stage.name.replace(/\./g, '-');
+          const cleanTaskTitle = task.title.replace(/\./g, '-');
+          const uniqueTaskName = `${cleanStageName}: ${cleanTaskTitle}`;
+          
+          ganttTasksList.push(uniqueTaskName);
+          
+          const startStr = task.startDate.split('T')[0];
+          const endStr = task.endDate.split('T')[0];
+          ganttTimelinesMap[uniqueTaskName] = `${startStr} | ${endStr}`;
+        });
+      });
+
+      // 3. Зберігаємо діаграму Ганта
+      await axios.post('http://localhost:5000/api/gantt-charts', {
+        planId: newPlanId,
+        tasks: ganttTasksList,
+        timelines: ganttTimelinesMap
+      }, config);
+
+      // 4. Оновлюємо статуси робітників
       for (let workerId of assignedWorkerIds) {
         await axios.patch(`http://localhost:5000/api/workers/${workerId}/status`, { isAvailable: false }, config).catch(e => console.error(e));
       }
-      setNotify({ open: true, message: 'План-графік збережено!', severity: 'success' });
+
+      setNotify({ open: true, message: 'План-графік та діаграму збережено!', severity: 'success' });
       fetchData();
       setCalendarViewMode('list');
       setSelectedCalendarObject('');
       setCurrentCalendarPlan(null);
-    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка збереження', severity: 'error' }); }
+    } catch (err) { 
+      console.error("Деталі помилки при збереженні:", err.response?.data || err); 
+      setNotify({ open: true, message: 'Помилка збереження. Перевірте консоль.', severity: 'error' }); 
+    }
   };
-
   // ФУНКЦІЯ ТРАНСФОРМАЦІЇ ДЛЯ ГАНТА
   const ganttTasks = useMemo(() => {
     let sourcePlan = currentCalendarPlan;
@@ -781,16 +951,78 @@ const TechnicalDashboard = () => {
 
   const handleSubmitInspection = async (e) => {
     e.preventDefault();
-    if (inspectionData.electricity.distance < 0 || inspectionData.water.depthExpected < 0) {
-      return setNotify({ open: true, message: 'Числа мають бути позитивними', severity: 'error' });
+    
+    // --- 1. ВАЛІДАЦІЯ ПЕРЕД ВІДПРАВКОЮ ---
+    
+    // Перевірка об'єкта
+    if (!inspectionData.objectId || (typeof inspectionData.objectId === 'object' && !inspectionData.objectId._id)) {
+      return setNotify({ open: true, message: 'Оберіть об\'єкт будівництва!', severity: 'error' });
     }
+
+    // Перевірка числових полів на від'ємні значення
+    const electricityDistance = Number(inspectionData.electricity.distance);
+    const waterDepth = Number(inspectionData.water.depthExpected);
+
+    if (isNaN(electricityDistance) || electricityDistance < 0) {
+      return setNotify({ open: true, message: 'Відстань до електрики не може бути від\'ємною!', severity: 'error' });
+    }
+    
+    if (isNaN(waterDepth) || waterDepth < 0) {
+      return setNotify({ open: true, message: 'Глибина свердловини не може бути від\'ємною!', severity: 'error' });
+    }
+
+    // Перевірка обов'язкових текстових полів
+    if (!inspectionData.relief || !inspectionData.relief.trim()) {
+        return setNotify({ open: true, message: 'Опис рельєфу обов\'язковий!', severity: 'error' });
+    }
+    if (!inspectionData.recommendations || !inspectionData.recommendations.trim()) {
+        return setNotify({ open: true, message: 'Рекомендації координатора обов\'язкові!', severity: 'error' });
+    }
+
+    // --- 2. ПІДГОТОВКА ДАНИХ ---
+    
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+    
     try {
-      const payload = { ...inspectionData, objectId: inspectionData.objectId?._id || inspectionData.objectId };
-      if (editingId) await axios.put(`http://localhost:5000/api/site-inspections/${editingId}`, payload, config);
-      else await axios.post('http://localhost:5000/api/site-inspections', payload, config);
-      setOpenInspectionForm(false); setEditingId(null); fetchData(); setNotify({ open: true, message: 'Акт збережено!', severity: 'success' });
-    } catch (err) { console.error(err); setNotify({ open: true, message: 'Помилка валідації', severity: 'error' }); }
+      // Гарантуємо, що objectId - це просто рядок (ID), а не цілий об'єкт
+      const actualObjectId = typeof inspectionData.objectId === 'object' 
+          ? inspectionData.objectId._id 
+          : inspectionData.objectId;
+
+      // Формуємо чистий payload для відправки
+      const payload = { 
+        ...inspectionData, 
+        objectId: actualObjectId,
+        // Переконуємось, що числа відправляються як числа
+        electricity: {
+            ...inspectionData.electricity,
+            distance: electricityDistance
+        },
+        water: {
+            ...inspectionData.water,
+            depthExpected: waterDepth
+        }
+      };
+
+      // --- 3. ВІДПРАВКА ЗАПИТУ ---
+      if (editingId) {
+          await axios.put(`http://localhost:5000/api/site-inspections/${editingId}`, payload, config);
+      } else {
+          await axios.post('http://localhost:5000/api/site-inspections', payload, config);
+      }
+      
+      setOpenInspectionForm(false); 
+      setEditingId(null); 
+      fetchData(); 
+      setNotify({ open: true, message: 'Акт успішно збережено!', severity: 'success' });
+      
+    } catch (err) { 
+      console.error("Деталі помилки:", err.response?.data || err.message); 
+      
+      // Показуємо користувачеві конкретне повідомлення від бекенда (якщо воно є)
+      const errorMsg = err.response?.data?.message || 'Помилка валідації на сервері. Перевірте всі поля.';
+      setNotify({ open: true, message: errorMsg, severity: 'error' }); 
+    }
   };
 
   return (

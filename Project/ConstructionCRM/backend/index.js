@@ -25,8 +25,11 @@ const projectSupplyRoutes = require('./routes/projectSupplyRoutes');
 // Маршрути для Робітників
 const workerRoutes = require('./routes/workerRoutes');
 
-// НОВИЙ МАРШРУТ: Календарне планування (Графіки робіт)
+// Маршрути: Календарне планування (Графіки робіт)
 const calendarPlanRoutes = require('./routes/calendarPlanRoutes');
+
+// НОВИЙ МАРШРУТ: Діаграма Ганта
+const ganttRoutes = require('./routes/ganttRoutes');
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -62,8 +65,9 @@ app.use('/api/project-supplies', projectSupplyRoutes);
 // Реєстрація робітників
 app.use('/api/workers', workerRoutes);
 
-// РЕЄСТРАЦІЯ КАЛЕНДАРНИХ ПЛАНІВ
+// Реєстрація календарних планів та Ганта
 app.use('/api/calendar-plans', calendarPlanRoutes);
+app.use('/api/gantt-charts', ganttRoutes);
 
 // --- Статичні файли ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -78,6 +82,7 @@ app.get('/', (req, res) => {
       <li>/api/building-objects - Об'єкти будівництва</li>
       <li>/api/technical-projects - Технічні плани</li>
       <li>/api/calendar-plans - Календарні графіки робіт</li>
+      <li>/api/gantt-charts - Дані діаграми Ганта</li>
       <li>/api/workers - Реєстр робітників</li>
       <li>/api/project-supplies - Відомості комплектації</li>
       <li>/api/tools - База інструментів</li>

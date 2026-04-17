@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import { 
   LogOut, User, Menu, X, LayoutDashboard, Database, 
-  Edit, Trash2, Printer, Plus, ShieldCheck, Landmark, Home, MapPin, AlertTriangle, FileText, Search, ClipboardList, Banknote
+  Edit, Trash2, Printer, Plus, ShieldCheck, Landmark, Home, MapPin, AlertTriangle, FileText, Search, ClipboardList, Banknote, BarChart3, Info
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -92,7 +92,7 @@ const InputGroup = styled.div`
   label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
   input, select, textarea { padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: white; font-family: inherit; font-size: 14px; }
   textarea { resize: vertical; min-height: 100px; }
-  input:focus { border-color: #38bdf8; outline: none; }
+  input:focus, select:focus { border-color: #38bdf8; outline: none; }
 `;
 
 const OrangeAlertBar = styled.div`
@@ -213,17 +213,41 @@ const ManagerDashboard = () => {
   // --- Валідації ---
   const validatePhone = (phone) => /^\+380\d{9}$/.test(phone);
   const validateIBAN = (iban) => /^UA\d{27}$/.test(iban);
-  const validateAccNumber = (num) => /^\d{3,25}$/.test(num); // Жорстка перевірка рахунку
+  const validateAccNumber = (num) => /^\d{3,25}$/.test(num);
+  const validateGPS = (coords) => /^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$/.test(coords);
 
   // --- Обробники ---
   const handleSubmitClient = async (e) => {
     e.preventDefault();
+
+    const requiredFields = ['surname', 'firstName', 'phone', 'series', 'number', 'issueDate', 'issuedBy', 'iban', 'bankName', 'accountOwner'];
+    for (let field of requiredFields) {
+      if (!formData[field] || String(formData[field]).trim() === '') {
+        setNotify({ open: true, message: 'Заповніть всі обов\'язкові поля!', severity: 'error' });
+        return;
+      }
+    }
+
     if (!validatePhone(formData.phone)) {
-      setNotify({ open: true, message: 'Телефон: +380XXXXXXXXX', severity: 'warning' }); return;
+      setNotify({ open: true, message: 'Телефон: +380XXXXXXXXX', severity: 'warning' }); 
+      return;
     }
+
     if (!validateIBAN(formData.iban)) {
-      setNotify({ open: true, message: 'IBAN: UA + 27 цифр', severity: 'warning' }); return;
+      setNotify({ open: true, message: 'IBAN: UA + 27 цифр', severity: 'warning' }); 
+      return;
     }
+
+    if (formData.email && formData.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setNotify({ open: true, message: 'Невірний формат Email!', severity: 'warning' }); 
+      return;
+    }
+
+    if (new Date(formData.issueDate) > new Date()) {
+      setNotify({ open: true, message: 'Дата видачі паспорта не може бути в майбутньому!', severity: 'warning' });
+      return;
+    }
+
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       const payload = {
@@ -235,34 +259,69 @@ const ManagerDashboard = () => {
       else await axios.post('http://localhost:5000/api/clients', payload, config);
       setOpenForm(false); setEditingId(null); await fetchAllData();
       setNotify({ open: true, message: 'Дані клієнта збережено!', severity: 'success' });
-    } catch (err) { console.error("Client Submit Error:", err); }
+    } catch (err) { console.error("Client Submit Error:", err); setNotify({ open: true, message: 'Помилка збереження даних', severity: 'error' }); }
   };
 
   const handleSubmitObject = async (e) => {
     e.preventDefault();
-    if (parseFloat(objFormData.area) <= 0) {
-      setNotify({ open: true, message: 'Вкажіть площу більше 0', severity: 'warning' }); return;
+
+    if (!objFormData.address || objFormData.address.trim().length < 5) {
+      setNotify({ open: true, message: 'Вкажіть повну адресу будівництва!', severity: 'warning' }); 
+      return;
     }
+
+    const areaVal = parseFloat(objFormData.area);
+    if (isNaN(areaVal) || areaVal <= 0) {
+      setNotify({ open: true, message: 'Вкажіть коректну площу (більше 0)!', severity: 'warning' }); 
+      return;
+    }
+
+    if (!objFormData.clientId) {
+      setNotify({ open: true, message: 'Обов\'язково оберіть замовника зі списку!', severity: 'warning' }); 
+      return;
+    }
+
+    if (!objFormData.description || objFormData.description.trim().length < 10) {
+      setNotify({ open: true, message: 'Додайте детальний технічний опис проєкту!', severity: 'warning' }); 
+      return;
+    }
+
+    if (objFormData.coordinates && objFormData.coordinates.trim() !== '' && !validateGPS(objFormData.coordinates)) {
+      setNotify({ open: true, message: 'Невірний формат GPS (приклад: 49.0275, 33.6281)', severity: 'warning' });
+      return;
+    }
+
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       if (editingId) await axios.put(`http://localhost:5000/api/building-objects/${editingId}`, objFormData, config);
       else await axios.post('http://localhost:5000/api/building-objects', objFormData, config);
       setOpenObjForm(false); setEditingId(null); await fetchAllData();
       setNotify({ open: true, message: 'Об’єкт зафіксовано!', severity: 'success' });
-    } catch (err) { console.error("Object Submit Error:", err); }
+    } catch (err) { console.error("Object Submit Error:", err); setNotify({ open: true, message: 'Помилка збереження об\'єкта', severity: 'error' }); }
   };
 
   const handleSubmitPayment = async (e) => {
     e.preventDefault();
-    // ПОВНА ВАЛІДАЦІЯ ТУТ
+    
     if (!payFormData.objectId || !payFormData.clientId) {
       setNotify({ open: true, message: 'Спершу оберіть об’єкт будівництва!', severity: 'error' });
+      return;
+    }
+
+    if (!payFormData.accountNumber || payFormData.accountNumber.trim() === '') {
+      setNotify({ open: true, message: 'Введіть номер договору або рахунку!', severity: 'warning' });
       return;
     }
     if (!validateAccNumber(payFormData.accountNumber)) {
       setNotify({ open: true, message: 'Номер рахунку має містити від 3 до 25 цифр!', severity: 'warning' });
       return;
     }
+
+    if (!payFormData.status) {
+      setNotify({ open: true, message: 'Оберіть статус платежу!', severity: 'warning' });
+      return;
+    }
+
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       const payload = { ...payFormData, amount: 0 };
@@ -288,7 +347,7 @@ const ManagerDashboard = () => {
       await axios.delete(urls[type], config);
       setNotify({ open: true, message: 'Запис успішно видалено', severity: 'info' });
       await fetchAllData();
-    } catch (err) { console.error("Delete Fail:", err); }
+    } catch (err) { console.error("Delete Fail:", err); setNotify({ open: true, message: 'Помилка при видаленні', severity: 'error' }); }
   };
 
   // --- Filtering ---
@@ -467,6 +526,7 @@ const ManagerDashboard = () => {
         <SidebarItem $active={activeTab === 'objects'} onClick={() => handleTabChange('objects')}><Home size={20}/> Об'єкти будівництва</SidebarItem>
         <SidebarItem $active={activeTab === 'payments'} onClick={() => handleTabChange('payments')}><Banknote size={20}/> Стан сплати</SidebarItem>
         <SidebarItem $active={activeTab === 'templates'} onClick={() => handleTabChange('templates')}><FileText size={20}/> Опорні плани</SidebarItem>
+        <SidebarItem $active={activeTab === 'reports'} onClick={() => handleTabChange('reports')}><BarChart3 size={20}/> Звіт по етапам будівництва</SidebarItem>
         <SidebarItem onClick={() => setLogoutDialogOpen(true)} style={{marginTop:'auto', color:'#ef4444', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px'}}><LogOut size={20}/> Вийти з системи</SidebarItem>
       </Sidebar>
 
@@ -490,6 +550,17 @@ const ManagerDashboard = () => {
         )}
 
         {activeTab === 'dashboard' && <div style={{textAlign:'center', marginTop:'120px'}}><Home size={100} color="#38bdf8" style={{opacity: 0.2, marginBottom: '20px'}} /><h2>BUILD CRM System</h2><p style={{color: '#94a3b8'}}>Система управління базою клієнтів та фінансами будівництва.</p></div>}
+
+        {activeTab === 'reports' && (
+          <div style={{animation: 'fadeIn 0.3s'}}>
+            <SectionTitle><BarChart3 size={18}/> Звіт по етапам будівництва</SectionTitle>
+            <div style={{textAlign: 'center', color: '#94a3b8', marginTop: '80px'}}>
+              <Info size={50} style={{marginBottom: '15px', color: '#38bdf8'}}/><br/>
+              <h3 style={{margin: '0 0 10px 0', color: 'white'}}>Розділ знаходиться в розробці</h3>
+              <p style={{margin: 0}}>Тут буде відображатися детальна аналітика та звіти по етапам будівництва об'єктів.</p>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'clients' && (
           <TableContainer><StyledTable><thead><tr><th>ПІБ Клієнта</th><th>Контакти</th><th>IBAN рахунок</th><th style={{textAlign:'right'}}>Дії</th></tr></thead><tbody>
@@ -543,20 +614,20 @@ const ManagerDashboard = () => {
         <DialogContent><h2 style={{color:'#38bdf8', marginBottom:'20px'}}>{editingId ? 'Редагувати клієнта' : 'Новий замовник'}</h2>
           <FormGrid onSubmit={handleSubmitClient} id="cf">
             <SectionTitle><User size={14}/> Особисті дані</SectionTitle>
-            <InputGroup><label>Прізвище</label><input required value={formData.surname} onChange={e=>setFormData({...formData, surname:e.target.value})}/></InputGroup>
-            <InputGroup><label>Ім'я</label><input required value={formData.firstName} onChange={e=>setFormData({...formData, firstName:e.target.value})}/></InputGroup>
-            <InputGroup><label>По батькові</label><input required value={formData.patronymic} onChange={e=>setFormData({...formData, patronymic:e.target.value})}/></InputGroup>
-            <InputGroup><label>Телефон</label><input required placeholder="+380..." value={formData.phone} onChange={e=>setFormData({...formData, phone:e.target.value})}/></InputGroup>
-            <InputGroup $span={2}><label>Email адреса</label><input type="email" required value={formData.email} onChange={e=>setFormData({...formData, email:e.target.value})}/></InputGroup>
+            <InputGroup><label>Прізвище *</label><input required value={formData.surname} onChange={e=>setFormData({...formData, surname:e.target.value})}/></InputGroup>
+            <InputGroup><label>Ім'я *</label><input required value={formData.firstName} onChange={e=>setFormData({...formData, firstName:e.target.value})}/></InputGroup>
+            <InputGroup><label>По батькові</label><input value={formData.patronymic} onChange={e=>setFormData({...formData, patronymic:e.target.value})}/></InputGroup>
+            <InputGroup><label>Телефон *</label><input required placeholder="+380..." value={formData.phone} onChange={e=>setFormData({...formData, phone:e.target.value})}/></InputGroup>
+            <InputGroup $span={2}><label>Email адреса</label><input type="email" value={formData.email} onChange={e=>setFormData({...formData, email:e.target.value})}/></InputGroup>
             <SectionTitle><ShieldCheck size={14}/> Паспортні дані</SectionTitle>
-            <InputGroup><label>Серія</label><input required maxLength={2} value={formData.series} onChange={e=>setFormData({...formData, series:e.target.value.toUpperCase()})}/></InputGroup>
-            <InputGroup><label>Номер</label><input required value={formData.number} onChange={e=>setFormData({...formData, number:e.target.value})}/></InputGroup>
-            <InputGroup><label>Дата видачі</label><input type="date" required value={formData.issueDate} onChange={e=>setFormData({...formData, issueDate:e.target.value})}/></InputGroup>
-            <InputGroup $span={3}><label>Орган видачі</label><input required value={formData.issuedBy} onChange={e=>setFormData({...formData, issuedBy:e.target.value})}/></InputGroup>
+            <InputGroup><label>Серія *</label><input required maxLength={2} value={formData.series} onChange={e=>setFormData({...formData, series:e.target.value.toUpperCase()})}/></InputGroup>
+            <InputGroup><label>Номер *</label><input required value={formData.number} onChange={e=>setFormData({...formData, number:e.target.value})}/></InputGroup>
+            <InputGroup><label>Дата видачі *</label><input type="date" required value={formData.issueDate} onChange={e=>setFormData({...formData, issueDate:e.target.value})}/></InputGroup>
+            <InputGroup $span={3}><label>Орган видачі *</label><input required value={formData.issuedBy} onChange={e=>setFormData({...formData, issuedBy:e.target.value})}/></InputGroup>
             <SectionTitle><Landmark size={14}/> Банківські реквізити</SectionTitle>
-            <InputGroup $span={2}><label>IBAN рахунок</label><input required placeholder="UA..." value={formData.iban} onChange={e=>setFormData({...formData, iban:e.target.value.toUpperCase()})}/></InputGroup>
-            <InputGroup><label>Назва банку</label><input required value={formData.bankName} onChange={e=>setFormData({...formData, bankName:e.target.value})}/></InputGroup>
-            <InputGroup $span={3}><label>ПІБ власника рахунку</label><input required value={formData.accountOwner} onChange={e=>setFormData({...formData, accountOwner:e.target.value})}/></InputGroup>
+            <InputGroup $span={2}><label>IBAN рахунок *</label><input required placeholder="UA..." value={formData.iban} onChange={e=>setFormData({...formData, iban:e.target.value.toUpperCase()})}/></InputGroup>
+            <InputGroup><label>Назва банку *</label><input required value={formData.bankName} onChange={e=>setFormData({...formData, bankName:e.target.value})}/></InputGroup>
+            <InputGroup $span={3}><label>ПІБ власника рахунку *</label><input required value={formData.accountOwner} onChange={e=>setFormData({...formData, accountOwner:e.target.value})}/></InputGroup>
           </FormGrid>
         </DialogContent>
         <DialogActions style={{padding:'20px'}}><Button onClick={()=>setOpenForm(false)} style={{color:'#94a3b8'}}>Скасувати</Button><Button type="submit" form="cf" variant="contained" style={{background:'#38bdf8', color:'#0a0f16', fontWeight:'bold', borderRadius: '10px'}}>Зберегти</Button></DialogActions>
@@ -567,18 +638,18 @@ const ManagerDashboard = () => {
         <DialogContent><h2 style={{color:'#38bdf8', marginBottom:'20px'}}>Паспорт об'єкта</h2>
           <FormGrid onSubmit={handleSubmitObject} id="of">
             <SectionTitle><Search size={14}/> Проєкт та Параметри</SectionTitle>
-            <InputGroup><label>Кімнат</label><input type="number" value={suggestParams.rooms} onChange={e=>setSuggestParams({...suggestParams, rooms:e.target.value})}/></InputGroup>
-            <InputGroup><label>Санвузлів</label><input type="number" value={suggestParams.bathrooms} onChange={e=>setSuggestParams({...suggestParams, bathrooms:e.target.value})}/></InputGroup>
+            <InputGroup><label>Кімнат</label><input type="number" min="0" value={suggestParams.rooms} onChange={e=>setSuggestParams({...suggestParams, rooms:e.target.value < 0 ? 0 : e.target.value})}/></InputGroup>
+            <InputGroup><label>Санвузлів</label><input type="number" min="0" value={suggestParams.bathrooms} onChange={e=>setSuggestParams({...suggestParams, bathrooms:e.target.value < 0 ? 0 : e.target.value})}/></InputGroup>
             <InputGroup><label>Варіант проєкту</label><select value={objFormData.templateId} onChange={e=>handleTemplateSelect(e.target.value)}><option value="">Оберіть проєкт...</option>
                 {suggestedTemplates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
             </select></InputGroup>
             <SectionTitle><MapPin size={14}/> Локація забудови</SectionTitle>
-            <InputGroup $span={2}><label>Адреса будівництва</label><input required value={objFormData.address} onChange={e=>setObjFormData({...objFormData, address:e.target.value})}/></InputGroup>
-            <InputGroup><label>Площа (м²)</label><input type="number" required min="1" value={objFormData.area} onChange={e=>setObjFormData({...objFormData, area:e.target.value})}/></InputGroup>
-            <InputGroup $span={2}><label>Замовник</label><select required value={objFormData.clientId} onChange={e=>setObjFormData({...objFormData, clientId:e.target.value})}><option value="">Оберіть замовника...</option>{clients.map(c=><option key={c._id} value={c._id}>{c.surname} {c.firstName}</option>)}</select></InputGroup>
-            <InputGroup><label>Координати GPS</label><input value={objFormData.coordinates} onChange={e=>setObjFormData({...objFormData, coordinates:e.target.value})}/></InputGroup>
+            <InputGroup $span={2}><label>Адреса будівництва *</label><input required value={objFormData.address} onChange={e=>setObjFormData({...objFormData, address:e.target.value})}/></InputGroup>
+            <InputGroup><label>Площа (м²) *</label><input type="number" required min="1" value={objFormData.area} onChange={e=>setObjFormData({...objFormData, area:e.target.value})}/></InputGroup>
+            <InputGroup $span={2}><label>Замовник *</label><select required value={objFormData.clientId} onChange={e=>setObjFormData({...objFormData, clientId:e.target.value})}><option value="">Оберіть замовника...</option>{clients.map(c=><option key={c._id} value={c._id}>{c.surname} {c.firstName}</option>)}</select></InputGroup>
+            <InputGroup><label>Координати GPS</label><input placeholder="49.0275, 33.6281" value={objFormData.coordinates} onChange={e=>setObjFormData({...objFormData, coordinates:e.target.value})}/></InputGroup>
             <SectionTitle><FileText size={14}/> Технічний опис</SectionTitle>
-            <InputGroup $span={3}><textarea required value={objFormData.description} onChange={e=>setObjFormData({...objFormData, description:e.target.value})}/></InputGroup>
+            <InputGroup $span={3}><label>Детальний опис проєкту *</label><textarea required value={objFormData.description} onChange={e=>setObjFormData({...objFormData, description:e.target.value})}/></InputGroup>
           </FormGrid>
         </DialogContent>
         <DialogActions style={{padding:'20px'}}><Button onClick={()=>setOpenObjForm(false)} style={{color:'#94a3b8'}}>Скасувати</Button><Button type="submit" form="of" variant="contained" style={{background:'#38bdf8', color:'#0a0f16', fontWeight:'bold', borderRadius: '10px'}}>Зберегти</Button></DialogActions>
@@ -588,7 +659,7 @@ const ManagerDashboard = () => {
       <Dialog open={openPaymentForm} onClose={() => setOpenPaymentForm(false)} maxWidth="sm" fullWidth PaperProps={{style:{backgroundColor:'#1e293b', color:'white', borderRadius:'24px'}}}>
         <DialogContent><h2 style={{color:'#38bdf8', marginBottom:'20px'}}>Стан сплати</h2>
           <FormGrid onSubmit={handleSubmitPayment} id="pf">
-            <InputGroup $span={3}><label>Об'єкт будівництва (за адресою)</label>
+            <InputGroup $span={3}><label>Об'єкт будівництва (за адресою) *</label>
               <select required value={payFormData.objectId} onChange={e=>{
                 const obj = buildingObjects.find(x=>x._id===e.target.value);
                 setPayFormData({...payFormData, objectId: e.target.value, clientId: obj?.clientId?._id || obj?.clientId});
@@ -597,9 +668,9 @@ const ManagerDashboard = () => {
                 {buildingObjects.map(o=><option key={o._id} value={o._id}>{o.address}</option>)}
               </select>
             </InputGroup>
-            <InputGroup $span={3}><label>Номер договору / рахунку (цифри)</label><input required placeholder="Введіть номер (3-25 цифр)" value={payFormData.accountNumber} onChange={e=>setPayFormData({...payFormData, accountNumber:e.target.value})}/></InputGroup>
+            <InputGroup $span={3}><label>Номер договору / рахунку (цифри) *</label><input required placeholder="Введіть номер (3-25 цифр)" value={payFormData.accountNumber} onChange={e=>setPayFormData({...payFormData, accountNumber:e.target.value})}/></InputGroup>
             <InputGroup $span={3}><label>Нотатки менеджера</label><textarea placeholder="Додаткова інформація..." value={payFormData.note} onChange={e=>setPayFormData({...payFormData, note:e.target.value})}/></InputGroup>
-            <InputGroup $span={3}><label>Поточний статус</label><select value={payFormData.status} onChange={e=>setPayFormData({...payFormData, status:e.target.value})}><option value="Pending">В очікуванні</option><option value="Completed">Повністю сплачено</option><option value="Failed">Відхилено / Борг</option></select></InputGroup>
+            <InputGroup $span={3}><label>Поточний статус *</label><select required value={payFormData.status} onChange={e=>setPayFormData({...payFormData, status:e.target.value})}><option value="Pending">В очікуванні</option><option value="Completed">Повністю сплачено</option><option value="Failed">Відхилено / Борг</option></select></InputGroup>
           </FormGrid>
         </DialogContent>
         <DialogActions style={{padding:'20px'}}><Button onClick={()=>setOpenPaymentForm(false)} style={{color:'#94a3b8'}}>Скасувати</Button><Button type="submit" form="pf" variant="contained" style={{background:'#38bdf8', color:'#0a0f16', fontWeight:'bold', borderRadius: '10px'}}>Зафіксувати</Button></DialogActions>

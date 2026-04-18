@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info,
   Map as MapIcon, ChevronRight, ChevronLeft, Check, ClipboardCheck, ShoppingCart,
   Home as HouseIcon, Wrench, Hammer, PackagePlus, ListChecks, ListFilter,
-  Calendar, Users, CalendarDays, List, BarChart3
+  Calendar, Users, CalendarDays, List, BarChart3, FolderTree, CornerDownRight
 } from 'lucide-react';
 
 import { Gantt, ViewMode } from 'gantt-task-react';
@@ -39,40 +39,76 @@ const GlobalStyle = createGlobalStyle`
     body { background: white !important; color: black !important; padding: 0 !important; } 
   }
 
-  /* --- ІДЕАЛЬНА ТЕМНА ТЕМА ДЛЯ ДІАГРАМИ ГАНТА --- */
-  .gantt-container { font-family: 'Inter', sans-serif !important; }
+  /* --- ЯДЕРНИЙ УДАР ПО БІЛОМУ ФОНУ GANTT-TASK-REACT --- */
   
-  /* Фон сітки (зебра) */
+  .gantt-container { 
+    background-color: #0a0f16 !important; 
+    font-family: 'Inter', sans-serif !important;
+  }
+  
+  .gantt-container svg { 
+    background-color: #0a0f16 !important; 
+  }
+
+  /* 1. Класичний підхід (для тих елементів, що слухаються класів) */
+  .gantt-container .gridBackground { fill: #0a0f16 !important; }
   .gantt-container .gridRow { fill: #0a0f16 !important; }
-  .gantt-container .gridRow:nth-of-type(even) { fill: #0f172a !important; }
+  .gantt-container .gridRow:nth-child(even) { fill: #0f172a !important; }
+  .gantt-container .gridRowLine, .gantt-container .gridTick { stroke: #1e293b !important; }
   
-  /* Запасний варіант, якщо бібліотека рендерить rect без класів */
-  .gantt-container svg > g > rect[fill="#fff"], 
-  .gantt-container svg > g > rect[fill="#ffffff"],
-  .gantt-container svg > g > rect[fill="#f5f5f5"] { fill: transparent !important; }
+  .gantt-container .calendarHeader { fill: #0f172a !important; stroke: #1e293b !important; }
+  .gantt-container .calendarTopTick, .gantt-container .calendarBottomTick { stroke: #1e293b !important; }
+  .gantt-container .calendarTopText { fill: #e2e8f0 !important; font-weight: 800 !important; }
+  .gantt-container .calendarBottomText { fill: #94a3b8 !important; font-weight: 600 !important; }
+
+  /* 2. АГРЕСИВНИЙ ПІДХІД: Перебиваємо жорстко зашиті кольори всередині SVG */
   
-  /* Лінії сітки */
-  .gantt-container .gridRowLine, 
-  .gantt-container .gridTick { stroke: #334155 !important; }
+  /* Знищуємо білий фон */
+  .gantt-container svg rect[fill="#fff"],
+  .gantt-container svg rect[fill="#ffffff"],
+  .gantt-container svg rect[fill="white"] {
+    fill: #0a0f16 !important;
+  }
   
-  /* Хедер календаря (дати) */
-  .gantt-container .calendarHeader { fill: #1e293b !important; stroke: #334155 !important; }
-  .gantt-container .calendarTopText { fill: #94a3b8 !important; font-weight: 700 !important; font-size: 12px !important; }
-  .gantt-container .calendarBottomText { fill: #f8fafc !important; font-weight: 700 !important; font-size: 11px !important; }
-  .gantt-container .calendarTopTick, 
-  .gantt-container .calendarBottomTick { stroke: #334155 !important; }
+  /* Знищуємо світло-сіру "зебру" */
+  .gantt-container svg rect[fill="#f5f5f5"],
+  .gantt-container svg rect[fill="#f4f4f4"] {
+    fill: #0f172a !important;
+  }
   
-  /* Текст назви завдання біля смужки (тепер ідеально читається) */
-  .gantt-container .barLabel { fill: #ffffff !important; font-weight: 700 !important; font-size: 12px !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
+  /* Перефарбовуємо світлі лінії сітки в темно-сині */
+  .gantt-container svg path[stroke="#e5e5e5"],
+  .gantt-container svg line[stroke="#e5e5e5"],
+  .gantt-container svg path[stroke="#ebebeb"],
+  .gantt-container svg line[stroke="#ebebeb"] {
+    stroke: #1e293b !important;
+  }
+  
+  /* Перефарбовуємо чорний/сірий текст календаря в білий */
+  .gantt-container svg text[fill="#555"],
+  .gantt-container svg text[fill="#555555"],
+  .gantt-container svg text[fill="#333"],
+  .gantt-container svg text[fill="#333333"],
+  .gantt-container svg text[fill="#000"] {
+    fill: #94a3b8 !important;
+  }
+  
+  /* Робимо верхні дати трішки світлішими для контрасту */
+  .gantt-container svg text[y="25"],
+  .gantt-container svg text[y="26"] {
+    fill: #e2e8f0 !important;
+  }
 `;
 
-// --- Кастомні компоненти для лівої частини Ганта ---
 // --- Кастомні компоненти для лівої частини Ганта ---
 const CustomTaskListHeader = ({ headerHeight, fontFamily }) => (
   <div style={{ height: headerHeight, fontFamily, background: '#1e293b', color: '#f8fafc', display: 'flex', borderBottom: '1px solid #334155', borderRight: '1px solid #334155', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
     <div style={{ width: '100%', padding: '0 15px', display: 'flex', alignItems: 'center' }}>Етап / Завдання</div>
   </div>
 );
+
+// --- Кастомна таблиця для лівої частини Ганта (з Lucide іконками) ---
+
 
 const CustomTaskListTable = ({ rowHeight, tasks, fontFamily }) => (
   <div style={{ fontFamily, background: '#0a0f16', color: '#e2e8f0', borderRight: '1px solid #334155' }}>
@@ -89,29 +125,41 @@ const CustomTaskListTable = ({ rowHeight, tasks, fontFamily }) => (
         }}>
           <div style={{ 
             width: '100%', 
-            // Робимо відступ зліва (35px) для дочірніх задач
-            padding: isStage ? '0 15px' : '0 15px 0 35px', 
+            // Робимо відступ зліва (30px) для дочірніх задач
+            padding: isStage ? '0 15px' : '0 15px 0 30px', 
             display: 'flex', 
             alignItems: 'center', 
             overflow: 'hidden', 
             textOverflow: 'ellipsis', 
             whiteSpace: 'nowrap' 
           }} title={t.name}>
+            
+            {/* Рендеримо іконку залежно від типу (Етап або Задача) */}
+            <span style={{ display: 'flex', alignItems: 'center', marginRight: '8px' }}>
+              {isStage ? (
+                <FolderTree size={16} color="#38bdf8" /> 
+              ) : (
+                <CornerDownRight size={14} color="#64748b" />
+              )}
+            </span>
+
+            {/* Текст назви */}
             <span style={{ 
               fontSize: isStage ? '13px' : '12px', 
               fontWeight: isStage ? 800 : 500, 
               color: isStage ? '#38bdf8' : '#e2e8f0',
-              textTransform: isStage ? 'uppercase' : 'none'
+              textTransform: isStage ? 'uppercase' : 'none',
+              marginTop: '1px' // Злегка рівняємо текст відносно іконки
             }}>
-              {isStage ? `📁 ${t.name}` : `↳ ${t.name}`}
+              {t.name}
             </span>
+
           </div>
         </div>
       );
     })}
   </div>
 );
-
 const CustomTooltip = ({ task, fontFamily }) => (
   <div style={{ background: '#1e293b', color: '#fff', padding: '12px 15px', borderRadius: '10px', border: '1px solid #38bdf8', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', fontFamily, fontSize: '12px' }}>
     <b style={{ color: '#38bdf8', display: 'block', marginBottom: '8px', fontSize: '13px' }}>{task.name}</b>
@@ -296,20 +344,27 @@ const TechnicalDashboard = () => {
     navigate('/login'); 
   };
 
-  // --- ФУНКЦІЯ ГЕНЕРАЦІЇ HTML ГАНТА (ДЛЯ ДРУКУ) ---
-const generateGanttHtmlString = (plan) => {
+// --- ФУНКЦІЯ ГЕНЕРАЦІЇ HTML ГАНТА (ДЛЯ ДРУКУ З КОЛЬОРАМИ ТА ІЄРАРХІЄЮ) ---
+  const generateGanttHtmlString = (plan) => {
     let minDate = new Date(8640000000000000);
     let maxDate = new Date(-8640000000000000);
     let tasksCount = 0;
 
     // Визначаємо діапазон дат
     plan.stages.forEach(s => s.tasks.forEach(t => {
+      if (!t.startDate || !t.endDate) return;
       tasksCount++;
       const start = new Date(t.startDate);
       const end = new Date(t.endDate);
       if (start < minDate) minDate = start;
       if (end > maxDate) maxDate = end;
     }));
+
+    // Якщо немає валідних дат
+    if (tasksCount === 0) {
+      minDate = new Date();
+      maxDate = new Date();
+    }
 
     // Додаємо запас 2 дні для відступів
     minDate = new Date(minDate.setDate(minDate.getDate() - 2));
@@ -324,44 +379,32 @@ const generateGanttHtmlString = (plan) => {
       <head>
         <title>Звіт: Графік робіт - ${plan.objectId?.address || ''}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
           
           body { 
             margin: 0; padding: 30px; 
             background-color: #ffffff; color: #1e293b; 
             font-family: 'Inter', sans-serif;
-            -webkit-print-color-adjust: exact; 
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important;
           }
 
           .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #3b82f6;
-            padding-bottom: 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; border-bottom: 3px solid #3b82f6; padding-bottom: 15px;
           }
 
           .title-area h1 { margin: 0; font-size: 22px; color: #1e293b; text-transform: uppercase; }
           .title-area p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
 
           .stat-badge {
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            padding: 8px 16px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #3b82f6;
+            background: #f1f5f9; border: 1px solid #e2e8f0; padding: 8px 16px;
+            border-radius: 12px; font-size: 12px; font-weight: 700; color: #3b82f6;
           }
 
           .gantt-container { 
-            display: flex; 
-            border: 1px solid #e2e8f0; 
-            border-radius: 12px; 
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            display: flex; border: 1px solid #e2e8f0; border-radius: 12px; 
+            overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
           }
 
           /* ТАБЛИЦЯ ЗЛІВА */
@@ -371,13 +414,21 @@ const generateGanttHtmlString = (plan) => {
             display: flex; align-items: center; font-weight: 700; 
             font-size: 10px; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;
           }
-          .t-row { 
-            height: 40px; display: flex; align-items: center; 
-            border-bottom: 1px solid #f1f5f9; font-size: 12px;
+          
+          /* Стилі для рядка ЕТАПУ */
+          .stage-row {
+            height: 30px; display: flex; align-items: center; font-weight: 800; font-size: 11px;
+            border-bottom: 1px solid #e2e8f0; padding: 0 15px; text-transform: uppercase;
           }
-          .t-row:nth-child(even) { background: #fcfcfc; }
+          
+          /* Стилі для рядка ЗАДАЧІ */
+          .t-row { 
+            height: 36px; display: flex; align-items: center; 
+            border-bottom: 1px solid #f1f5f9; font-size: 11px;
+          }
+          .t-row:nth-child(odd) { background: #fcfcfc; }
           .c-name { width: 220px; padding: 0 15px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .c-date { width: 90px; text-align: center; color: #64748b; font-size: 11px; }
+          .c-date { width: 90px; text-align: center; color: #64748b; font-size: 10px; }
 
           /* ЧАРТ СПРАВА */
           .gantt-timeline { flex-grow: 1; overflow-x: auto; background: #fff; }
@@ -390,15 +441,16 @@ const generateGanttHtmlString = (plan) => {
           .d-num { font-size: 11px; color: #1e293b; font-weight: 700; }
 
           .timeline-body { position: relative; width: ${totalDays * dayWidth}px; }
-          .grid-row { height: 40px; border-bottom: 1px solid #f1f5f9; position: relative; }
-          .grid-row:nth-child(even) { background: #fcfcfc; }
+          
+          .grid-stage-row { height: 30px; border-bottom: 1px solid #e2e8f0; position: relative; }
+          .grid-row { height: 36px; border-bottom: 1px solid #f1f5f9; position: relative; }
+          .grid-row:nth-child(odd) { background: #fcfcfc; }
 
           .task-bar { 
-            position: absolute; height: 24px; top: 8px; 
-            background: #3b82f6; border-radius: 6px; 
-            display: flex; align-items: center; padding: 0 10px;
-            color: white; font-size: 10px; font-weight: 700;
-            white-space: nowrap;
+            position: absolute; height: 20px; top: 8px; 
+            border-radius: 6px; display: flex; align-items: center; padding: 0 10px;
+            color: white; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
           }
 
           @media print {
@@ -413,9 +465,7 @@ const generateGanttHtmlString = (plan) => {
             <h1>Календарний план робіт</h1>
             <p>Об'єкт: <b>${plan.objectId?.address || 'Не вказано'}</b></p>
           </div>
-          <div class="stat-badge">
-            Завдань у звіті: ${tasksCount}
-          </div>
+          <div class="stat-badge">Завдань у звіті: ${tasksCount}</div>
         </div>
 
         <div class="gantt-container">
@@ -425,15 +475,27 @@ const generateGanttHtmlString = (plan) => {
               <div class="c-date">Початок</div>
               <div class="c-date">Кінець</div>
             </div>
-            ${plan.stages.map(stage => 
-              stage.tasks.map(task => `
-                <div class="t-row">
-                  <div class="c-name">${stage.name}: ${task.title}</div>
-                  <div class="c-date">${new Date(task.startDate).toLocaleDateString('uk-UA')}</div>
-                  <div class="c-date">${new Date(task.endDate).toLocaleDateString('uk-UA')}</div>
+            ${plan.stages.map(stage => {
+              const stageColors = getStageColors(stage.name);
+              // Заголовок етапу
+              let html = `
+                <div class="stage-row" style="background: ${stageColors.bg}; color: ${stageColors.fill}; border-left: 4px solid ${stageColors.fill};">
+                  📁 ${stage.name}
                 </div>
-              `).join('')
-            ).join('')}
+              `;
+              // Задачі етапу
+              stage.tasks.forEach(task => {
+                if(!task.startDate || !task.endDate) return;
+                html += `
+                  <div class="t-row">
+                    <div class="c-name" style="padding-left: 30px; color: #475569;">↳ ${task.title}</div>
+                    <div class="c-date">${new Date(task.startDate).toLocaleDateString('uk-UA')}</div>
+                    <div class="c-date">${new Date(task.endDate).toLocaleDateString('uk-UA')}</div>
+                  </div>
+                `;
+              });
+              return html;
+            }).join('')}
           </div>
 
           <div class="gantt-timeline">
@@ -441,28 +503,59 @@ const generateGanttHtmlString = (plan) => {
               ${Array.from({ length: totalDays }).map((_, i) => {
                 const date = new Date(minDate);
                 date.setDate(date.getDate() + i);
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 return `
-                  <div class="day-cell">
-                    <span class="d-name">${date.toLocaleDateString('uk-UA', { weekday: 'short' })}</span>
-                    <span class="d-num">${date.getDate()}</span>
+                  <div class="day-cell" style="background: ${isWeekend ? '#fef2f2' : 'transparent'};">
+                    <span class="d-name" style="color: ${isWeekend ? '#ef4444' : '#94a3b8'};${isWeekend ? 'font-weight:700;' : ''}">${date.toLocaleDateString('uk-UA', { weekday: 'short' })}</span>
+                    <span class="d-num" style="color: ${isWeekend ? '#ef4444' : '#1e293b'};${isWeekend ? 'font-weight:800;' : ''}">${date.getDate()}</span>
                   </div>`;
               }).join('')}
             </div>
+            
             <div class="timeline-body">
-              ${plan.stages.map(stage => 
-                stage.tasks.map(task => {
+              ${plan.stages.map(stage => {
+                const stageColors = getStageColors(stage.name);
+                const validTasks = stage.tasks.filter(t => t.startDate && t.endDate);
+                let stageHtml = '';
+
+                // Лінія тривалості всього ЕТАПУ (Батьківська смуга-дужка)
+                if (validTasks.length > 0) {
+                   const startDates = validTasks.map(t => new Date(t.startDate).getTime());
+                   const endDates = validTasks.map(t => new Date(t.endDate).getTime());
+                   const stageStart = new Date(Math.min(...startDates));
+                   const stageEnd = new Date(Math.max(...endDates));
+
+                   const sOffset = Math.floor((stageStart - minDate) / (1000 * 60 * 60 * 24));
+                   const sWidth = Math.ceil((stageEnd - stageStart) / (1000 * 60 * 60 * 24)) || 1;
+
+                   stageHtml += `
+                     <div class="grid-stage-row" style="background: ${stageColors.bg}40;">
+                       <div style="position: absolute; top: 12px; left: ${sOffset * dayWidth}px; width: ${sWidth * dayWidth}px; height: 4px; background: ${stageColors.fill}; border-radius: 2px;"></div>
+                       <div style="position: absolute; top: 8px; left: ${sOffset * dayWidth}px; width: 2px; height: 12px; background: ${stageColors.fill};"></div>
+                       <div style="position: absolute; top: 8px; left: ${(sOffset + sWidth) * dayWidth - 2}px; width: 2px; height: 12px; background: ${stageColors.fill};"></div>
+                     </div>
+                   `;
+                } else {
+                   stageHtml += `<div class="grid-stage-row"></div>`;
+                }
+
+                // Кольорові смуги ЗАДАЧ
+                stage.tasks.forEach(task => {
+                  if (!task.startDate || !task.endDate) return;
                   const start = new Date(task.startDate);
                   const end = new Date(task.endDate);
                   const offset = Math.floor((start - minDate) / (1000 * 60 * 60 * 24));
                   const width = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
-                  return `
+
+                  stageHtml += `
                     <div class="grid-row">
-                      <div class="task-bar" style="left: ${offset * dayWidth}px; width: ${width * dayWidth}px;">
+                      <div class="task-bar" style="left: ${offset * dayWidth}px; width: ${width * dayWidth}px; background: ${stageColors.fill};">
                         ${task.title}
                       </div>
                     </div>`;
-                }).join('')
-              ).join('')}
+                });
+                return stageHtml;
+              }).join('')}
             </div>
           </div>
         </div>

@@ -67,29 +67,48 @@ const GlobalStyle = createGlobalStyle`
 `;
 
 // --- Кастомні компоненти для лівої частини Ганта ---
+// --- Кастомні компоненти для лівої частини Ганта ---
 const CustomTaskListHeader = ({ headerHeight, fontFamily }) => (
-  <div style={{ height: headerHeight, fontFamily, background: '#1e293b', color: '#38bdf8', display: 'flex', borderBottom: '1px solid #334155', borderRight: '1px solid #334155', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
-    <div style={{ minWidth: '250px', width: '250px', padding: '0 15px', display: 'flex', alignItems: 'center', borderRight: '1px solid #334155' }}>Етап / Завдання</div>
-    <div style={{ minWidth: '100px', width: '100px', padding: '0 15px', display: 'flex', alignItems: 'center', borderRight: '1px solid #334155' }}>Початок</div>
-    <div style={{ minWidth: '100px', width: '100px', padding: '0 15px', display: 'flex', alignItems: 'center' }}>Закінчення</div>
+  <div style={{ height: headerHeight, fontFamily, background: '#1e293b', color: '#f8fafc', display: 'flex', borderBottom: '1px solid #334155', borderRight: '1px solid #334155', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
+    <div style={{ width: '100%', padding: '0 15px', display: 'flex', alignItems: 'center' }}>Етап / Завдання</div>
   </div>
 );
 
 const CustomTaskListTable = ({ rowHeight, tasks, fontFamily }) => (
   <div style={{ fontFamily, background: '#0a0f16', color: '#e2e8f0', borderRight: '1px solid #334155' }}>
-    {tasks.map((t, i) => (
-      <div key={t.id} style={{ height: rowHeight, display: 'flex', borderBottom: '1px solid #334155', background: i % 2 === 0 ? '#0f172a' : '#0a0f16' }}>
-        <div style={{ minWidth: '250px', width: '250px', padding: '0 15px', display: 'flex', alignItems: 'center', borderRight: '1px solid #334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.name}>
-          <span style={{ fontSize: '12px', fontWeight: 600 }}>{t.name}</span>
+    {tasks.map((t, i) => {
+      // Перевіряємо, чи це етап (проект), чи звичайна задача
+      const isStage = t.type === 'project';
+      
+      return (
+        <div key={t.id} style={{ 
+          height: rowHeight, 
+          display: 'flex', 
+          borderBottom: '1px solid #334155', 
+          background: isStage ? '#1e293b' : (i % 2 === 0 ? '#0f172a' : '#0a0f16') 
+        }}>
+          <div style={{ 
+            width: '100%', 
+            // Робимо відступ зліва (35px) для дочірніх задач
+            padding: isStage ? '0 15px' : '0 15px 0 35px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap' 
+          }} title={t.name}>
+            <span style={{ 
+              fontSize: isStage ? '13px' : '12px', 
+              fontWeight: isStage ? 800 : 500, 
+              color: isStage ? '#38bdf8' : '#e2e8f0',
+              textTransform: isStage ? 'uppercase' : 'none'
+            }}>
+              {isStage ? `📁 ${t.name}` : `↳ ${t.name}`}
+            </span>
+          </div>
         </div>
-        <div style={{ minWidth: '100px', width: '100px', padding: '0 15px', display: 'flex', alignItems: 'center', borderRight: '1px solid #334155', color: '#94a3b8', fontSize: '11px' }}>
-          {t.start.toLocaleDateString()}
-        </div>
-        <div style={{ minWidth: '100px', width: '100px', padding: '0 15px', display: 'flex', alignItems: 'center', color: '#94a3b8', fontSize: '11px' }}>
-          {t.end.toLocaleDateString()}
-        </div>
-      </div>
-    ))}
+      );
+    })}
   </div>
 );
 
@@ -144,6 +163,33 @@ const AlertText = styled.div` display: flex; align-items: center; gap: 12px; col
 const ConfirmLogoutButton = styled.button` background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 8px 18px; border-radius: 25px; font-size: 14px; font-weight: 900; cursor: pointer; transition: 0.2s; &:hover { background: white; color: #f97316; } `;
 const CancelLogoutLink = styled.div` color: #94a3b8; font-size: 14px; margin-top: 20px; cursor: pointer; text-decoration: underline; text-align: center; font-weight: 600; &:hover { color: white; } `;
 
+// --- ФУНКЦІЯ ВИЗНАЧЕННЯ СПЕЦІАЛІЗАЦІЙ ЗА ЕТАПОМ (ОНОВЛЕНА) ---
+const getRequiredSpecialization = (stageName) => {
+  if (!stageName) return [];
+  const name = stageName.toUpperCase();
+  
+  if (name.includes('ПІДГОТОВКА')) return ['Водій самоскида (Підготовка)', 'Різноробочий (Підготовка)'];
+  if (name.includes('РОЗМІТКА')) return ['Геодезист (Розмітка)'];
+  if (name.includes('ЗЕМЛЯНІ')) return ['Екскаваторник (Земляні роботи)'];
+  if (name.includes('ФУНДАМЕНТ')) return ['Бетоняр-арматурник (Фундамент)', 'Зварювальник (Фундамент)'];
+  if (name.includes('МОНТАЖ')) return ['Муляр (Монтаж стін)', 'Монтажник металоконструкцій (Монтаж)', 'Покрівельник (Монтаж даху)', 'Кранівник (Монтаж)', 'Монтажник вікон та дверей (Монтаж)'];
+  if (name.includes('ОЗДОБЛЕННЯ')) return ['Електрик-монтажник (Оздоблення)', 'Сантехнік-опалювальник (Оздоблення)', 'Маляр-штукатур (Оздоблення)', 'Плиточник-облицювальник (Оздоблення)', 'Гіпсокартонщик (Оздоблення)', 'Фасадчик (Оздоблення)'];
+  
+  return []; // Повертає порожній масив, якщо немає жорстких обмежень
+};
+// --- ФУНКЦІЯ КОЛЬОРОВОГО КОДУВАННЯ ЕТАПІВ ДЛЯ ГАНТА ---
+const getStageColors = (stageName) => {
+  const name = (stageName || '').toUpperCase();
+  
+  if (name.includes('ПІДГОТОВКА')) return { bg: 'rgba(168, 85, 247, 0.2)', fill: '#a855f7', hover: '#c084fc' }; // Фіолетовий
+  if (name.includes('РОЗМІТКА')) return { bg: 'rgba(234, 179, 8, 0.2)', fill: '#eab308', hover: '#facc15' }; // Жовтий
+  if (name.includes('ЗЕМЛЯНІ')) return { bg: 'rgba(217, 119, 6, 0.2)', fill: '#d97706', hover: '#f59e0b' }; // Помаранчево-коричневий
+  if (name.includes('ФУНДАМЕНТ')) return { bg: 'rgba(239, 68, 68, 0.2)', fill: '#ef4444', hover: '#f87171' }; // Червоний
+  if (name.includes('МОНТАЖ')) return { bg: 'rgba(56, 189, 248, 0.2)', fill: '#38bdf8', hover: '#7dd3fc' }; // Синій (базовий)
+  if (name.includes('ОЗДОБЛЕННЯ')) return { bg: 'rgba(34, 197, 94, 0.2)', fill: '#22c55e', hover: '#4ade80' }; // Зелений
+  
+  return { bg: 'rgba(148, 163, 184, 0.2)', fill: '#94a3b8', hover: '#cbd5e1' }; // Сірий (за замовчуванням)
+};
 // =============================================================================
 // ОСНОВНИЙ КОМПОНЕНТ
 // =============================================================================
@@ -732,11 +778,84 @@ const generateGanttHtmlString = (plan) => {
     updated.stages[stageIdx].tasks.push({ title: '', startDate: '', endDate: '', assignedWorkers: [] });
     setCurrentCalendarPlan(updated);
   };
+// --- ПЕРЕВІРКА НА ВИХІДНІ ДНІ ---
+  const isWeekend = (dateString) => {
+    if (!dateString) return false;
+    const day = new Date(dateString).getDay();
+    return day === 0 || day === 6; // 0 - Неділя, 6 - Субота
+  };
+
+  const hasWeekendInRange = (startStr, endStr) => {
+    if (!startStr || !endStr) return false;
+    let current = new Date(startStr);
+    const end = new Date(endStr);
+    
+    // Проходимось по кожному дню в діапазоні
+    while (current <= end) {
+      const day = current.getDay();
+      if (day === 0 || day === 6) return true;
+      current.setDate(current.getDate() + 1);
+    }
+    return false;
+  };
 
   const handleTaskChange = (stageIdx, taskIdx, field, value) => {
     const updated = { ...currentCalendarPlan };
-    updated.stages[stageIdx].tasks[taskIdx][field] = value;
+    const task = updated.stages[stageIdx].tasks[taskIdx];
+
+    // --- ВАЛІДАЦІЯ ДАТ НА ВИХІДНІ ---
+    if (field === 'startDate' || field === 'endDate') {
+      // 1. Забороняємо ставити початок або кінець на Суботу/Неділю
+      if (isWeekend(value)) {
+        setNotify({ open: true, message: '❌ Оберіть робочий день! Субота та Неділя — вихідні.', severity: 'warning' });
+        return; // Блокуємо зміну
+      }
+
+      // 2. Перевіряємо, чи не захоплює весь період вихідні дні
+      const newStart = field === 'startDate' ? value : task.startDate;
+      const newEnd = field === 'endDate' ? value : task.endDate;
+
+      if (newStart && newEnd && new Date(newStart) <= new Date(newEnd)) {
+        if (hasWeekendInRange(newStart, newEnd)) {
+          setNotify({ 
+            open: true, 
+            message: '⚠️ Період охоплює вихідні! Розбийте довге завдання на дві частини (напр. до п\'ятниці та з понеділка).', 
+            severity: 'warning' 
+          });
+          return; // Блокуємо зміну
+        }
+      }
+    }
+
+    // Якщо все добре — зберігаємо нове значення
+    task[field] = value;
     setCurrentCalendarPlan(updated);
+  };
+// --- ПЕРЕВІРКА НАКЛАДАННЯ ДАТ РОБІТНИКА ---
+  const checkWorkerConflict = (workerId, newStart, newEnd, currentTask) => {
+    if (!currentCalendarPlan || !newStart || !newEnd) return { hasConflict: false };
+    
+    const startA = new Date(newStart).getTime();
+    const endA = new Date(newEnd).getTime();
+
+    for (const stage of currentCalendarPlan.stages) {
+      for (const task of stage.tasks) {
+        if (task === currentTask) continue; // Не порівнюємо задачу саму з собою
+        
+        const hasWorker = task.assignedWorkers?.some(w => (typeof w === 'object' ? w._id : w) === workerId);
+        
+        if (hasWorker && task.startDate && task.endDate) {
+          const startB = new Date(task.startDate).getTime();
+          const endB = new Date(task.endDate).getTime();
+          
+          // Логіка перетину інтервалів: (Початок1 <= Кінець2) ТА (Кінець1 >= Початок2)
+          if (startA <= endB && endA >= startB) {
+             return { hasConflict: true, taskName: task.title, stageName: stage.name };
+          }
+        }
+      }
+    }
+    return { hasConflict: false };
   };
 
   const handleAddWorkerToTask = (sIdx, tIdx, workerId) => {
@@ -744,6 +863,21 @@ const generateGanttHtmlString = (plan) => {
     const updated = { ...currentCalendarPlan };
     const task = updated.stages[sIdx].tasks[tIdx];
     
+    // 1. Спочатку вимагаємо дати
+    if (!task.startDate || !task.endDate) {
+      return setNotify({ open: true, message: 'Спочатку вкажіть дати початку та закінчення для цієї задачі!', severity: 'warning' });
+    }
+
+    // 2. Перевіряємо на конфлікт розкладу
+    const conflict = checkWorkerConflict(workerId, task.startDate, task.endDate, task);
+    if (conflict.hasConflict) {
+      return setNotify({ 
+        open: true, 
+        message: `Конфлікт! Цей робітник вже зайнятий у ці дати на етапі: ${conflict.stageName} (${conflict.taskName})`, 
+        severity: 'error' 
+      });
+    }
+
     if (!task.assignedWorkers) task.assignedWorkers = [];
     const alreadyAssigned = task.assignedWorkers.some(w => (typeof w === 'object' ? w._id : w) === workerId);
     
@@ -839,33 +973,70 @@ const generateGanttHtmlString = (plan) => {
       setNotify({ open: true, message: 'Помилка збереження. Перевірте консоль.', severity: 'error' }); 
     }
   };
-  // ФУНКЦІЯ ТРАНСФОРМАЦІЇ ДЛЯ ГАНТА
+ // ФУНКЦІЯ ТРАНСФОРМАЦІЇ ДЛЯ ГАНТА (З ІЄРАРХІЄЮ)
   const ganttTasks = useMemo(() => {
     let sourcePlan = currentCalendarPlan;
     if (calendarViewMode === 'gantt' && selectedCalendarObject) {
       sourcePlan = calendarPlans.find(p => (p.objectId?._id || p.objectId) === selectedCalendarObject);
     }
     if (!sourcePlan || !sourcePlan.stages) return [];
+    
     const tasks = [];
+    
     sourcePlan.stages.forEach((stage, sIdx) => {
-      stage.tasks.forEach((task, tIdx) => {
-        if (task.startDate && task.endDate && task.title) {
-          tasks.push({
-            start: new Date(task.startDate),
-            end: new Date(task.endDate),
-            name: `${task.title}`,
-            id: `task-${sIdx}-${tIdx}`,
-            type: 'task',
-            progress: 100, 
-            isDisabled: true, 
-            styles: { progressColor: '#38bdf8', progressSelectedColor: '#7dd3fc', backgroundColor: 'rgba(56, 189, 248, 0.2)' }
-          });
+      const stageColors = getStageColors(stage.name);
+      
+      // Відбираємо тільки ті задачі, які мають дати
+      const validTasks = stage.tasks.filter(t => t.startDate && t.endDate && t.title);
+      if (validTasks.length === 0) return; // Пропускаємо порожні етапи
+
+      // 1. Вираховуємо початок і кінець для ВСЬОГО ЕТАПУ
+      const startDates = validTasks.map(t => new Date(t.startDate).getTime());
+      const endDates = validTasks.map(t => new Date(t.endDate).getTime());
+      const stageStart = new Date(Math.min(...startDates));
+      const stageEnd = new Date(Math.max(...endDates));
+      
+      const stageId = `stage-${sIdx}`;
+
+      // 2. ДОДАЄМО БАТЬКІВСЬКИЙ ЕТАП
+      tasks.push({
+        start: stageStart,
+        end: stageEnd,
+        name: stage.name,
+        id: stageId,
+        type: 'project', // ВАЖЛИВО: Це вказує, що це група (Батько)
+        progress: 100, 
+        isDisabled: true, 
+        styles: { 
+          progressColor: stageColors.fill, 
+          progressSelectedColor: stageColors.hover, 
+          backgroundColor: stageColors.bg 
         }
       });
+
+      // 3. ДОДАЄМО ДОЧІРНІ ЗАДАЧІ
+      validTasks.forEach((task, tIdx) => {
+        tasks.push({
+          start: new Date(task.startDate),
+          end: new Date(task.endDate),
+          name: task.title,
+          id: `task-${sIdx}-${tIdx}`,
+          type: 'task', // Звичайна задача (Дитина)
+          project: stageId, // ВАЖЛИВО: Прив'язуємо до Батька
+          progress: 100, 
+          isDisabled: true, 
+          styles: { 
+            progressColor: stageColors.fill, 
+            progressSelectedColor: stageColors.hover, 
+            backgroundColor: stageColors.bg 
+          }
+        });
+      });
     });
+    
     return tasks;
   }, [currentCalendarPlan, calendarViewMode, selectedCalendarObject, calendarPlans]);
-
+  
   // --- ЛОГІКА МАЙСТРА ПЛАНІВ ---
   const handleObjectSelect = (id) => {
     const inspection = inspections.find(ins => (ins.objectId?._id || ins.objectId) === id);
@@ -1122,12 +1293,39 @@ const generateGanttHtmlString = (plan) => {
                                               ) : null;
                                             })}
                                           </div>
-                                          <select style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '10px', width: '100%', fontSize: '13px'}} value="" onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}>
-                                            <option value="" disabled>+ Обрати вільного робітника...</option>
-                                            {workers.filter(w => w.isAvailable && (!task.assignedWorkers || !task.assignedWorkers.some(aw => (typeof aw === 'object' ? aw._id : aw) === w._id))).map(w => (
-                                              <option key={w._id} value={w._id}>{w.lastName} {w.firstName} ({w.specialization})</option>
-                                            ))}
-                                          </select>
+                          <select 
+  style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '10px', width: '100%', fontSize: '13px'}} 
+  value="" 
+  onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
+>
+  <option value="" disabled>+ Обрати робітника...</option>
+  {(() => {
+    // 1. Отримуємо масив потрібних спеціалізацій для цього етапу
+    const requiredSpecs = getRequiredSpecialization(stage.name);
+    
+    // 2. ЖОРСТКИЙ ФІЛЬТР: залишаємо тільки тих, хто:
+    // - Вільний загалом
+    // - Ще не призначений на цю задачу
+    // - МАЄ ТОЧНУ СПЕЦІАЛІЗАЦІЮ ДЛЯ ЦЬОГО ЕТАПУ
+    const matchingWorkers = workers.filter(w => 
+      w.isAvailable && 
+      !task.assignedWorkers?.some(aw => (typeof aw === 'object' ? aw._id : aw) === w._id) &&
+      requiredSpecs.includes(w.specialization)
+    );
+
+    // 3. Якщо вільних спеціалістів немає - показуємо повідомлення прямо в списку
+    if (matchingWorkers.length === 0) {
+      return <option value="" disabled>Немає вільних робітників цієї кваліфікації</option>;
+    }
+
+    // 4. Виводимо ідеально відфільтрований список
+    return matchingWorkers.map(w => (
+      <option key={w._id} value={w._id}>
+        {w.lastName} {w.firstName} ({w.specialization})
+      </option>
+    ));
+  })()}
+</select>
                                         </td>
                                         <td style={{textAlign:'right', verticalAlign: 'top'}}><IconButton style={{color:'#ef4444'}} onClick={() => { const upd = {...currentCalendarPlan}; upd.stages[sIdx].tasks.splice(tIdx, 1); setCurrentCalendarPlan(upd); }}><Trash2 size={16}/></IconButton></td>
                                       </tr>
@@ -1177,7 +1375,7 @@ const generateGanttHtmlString = (plan) => {
                             tasks={ganttTasks} 
                             viewMode={ViewMode.Day} 
                             locale="ukr" 
-                            listCellWidth="450px" 
+                            listCellWidth="300px" 
                             columnWidth={60} 
                             TaskListHeader={CustomTaskListHeader}
                             TaskListTable={CustomTaskListTable}

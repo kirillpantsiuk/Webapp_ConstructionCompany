@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info,
   Map as MapIcon, ChevronRight, ChevronLeft, Check, ClipboardCheck, ShoppingCart,
   Home as HouseIcon, Wrench, Hammer, PackagePlus, ListChecks, ListFilter,
-  Calendar, Users, CalendarDays, List, BarChart3, FolderTree, CornerDownRight
+  Calendar, Users, CalendarDays, List, BarChart3,CheckCircle,  FolderTree, CornerDownRight
 } from 'lucide-react';
 
 import { Gantt, ViewMode } from 'gantt-task-react';
@@ -238,6 +238,38 @@ const getStageColors = (stageName) => {
   
   return { bg: 'rgba(148, 163, 184, 0.2)', fill: '#94a3b8', hover: '#cbd5e1' }; // Сірий (за замовчуванням)
 };
+
+// --- МАТЕМАТИЧНЕ ЯДРО СИСТЕМИ (Розділ 2 моделі) ---
+const MathModelEngine = {
+  constants: {
+    H: 8, // Тривалість зміни
+    N: { brick: 6, gasblock: 2, machine: 1.5, manual: 8, finish: 4 }, // Норми N_ij
+    Delta: { form: 5, found: 21, belt: 10, plast: 12, screed: 25 } // Тех. перерви Δ
+  },
+  // d_ij(m) = ceil((V * N) / (R * H))
+  calculateDuration: (V, materialKey, R) => {
+    const norm = MathModelEngine.constants.N[materialKey] || 4;
+    const workers = R > 0 ? R : 2; 
+    return Math.ceil((V * norm) / (workers * MathModelEngine.constants.H));
+  },
+  // Функція C(t) - розв'язання рівняння суми робочих днів (пропуск Сб/Нд)
+  findFinishDate: (startDate, duration) => {
+    let date = new Date(startDate);
+    let remainingDays = duration;
+    while (remainingDays > 1) {
+      date.setDate(date.getDate() + 1);
+      if (date.getDay() !== 0 && date.getDay() !== 6) remainingDays--;
+    }
+    return date;
+  },
+  // Додавання Δ (календарні дні для процесів твердіння)
+  addTechPause: (date, delta) => {
+    const res = new Date(date);
+    res.setDate(res.getDate() + delta);
+    return res;
+  }
+};
+
 // =============================================================================
 // ОСНОВНИЙ КОМПОНЕНТ
 // =============================================================================
@@ -272,7 +304,7 @@ const TechnicalDashboard = () => {
   const [selectedCalendarObject, setSelectedCalendarObject] = useState('');
   const [currentCalendarPlan, setCurrentCalendarPlan] = useState(null);
   const [calendarViewMode, setCalendarViewMode] = useState('form'); 
-
+const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 });
   const userInfo = useMemo(() => {
     const data = localStorage.getItem('userInfo');
     return data ? JSON.parse(data) : null;
@@ -952,34 +984,43 @@ const TechnicalDashboard = () => {
   };
 
   const handleAddWorkerToTask = (sIdx, tIdx, workerId) => {
-    if (!workerId) return;
-    const updated = { ...currentCalendarPlan };
-    const task = updated.stages[sIdx].tasks[tIdx];
-    
-    // 1. Спочатку вимагаємо дати
-    if (!task.startDate || !task.endDate) {
-      return setNotify({ open: true, message: 'Спочатку вкажіть дати початку та закінчення для цієї задачі!', severity: 'warning' });
-    }
+  if (!workerId) return;
+  const updated = { ...currentCalendarPlan };
+  const task = updated.stages[sIdx].tasks[tIdx];
+  
+  // 1. ВИДАЛЯЄМО ОБОВ'ЯЗКОВУ ПЕРЕВІРКУ ДАТ
+  // В мат. моделі дати — це результат розрахунку, а не умова для вибору людей.
 
-    // 2. Перевіряємо на конфлікт розкладу
+  // 2. ПЕРЕВІРКА НА КОНФЛІКТ (Тільки якщо дати вже є)
+  // Якщо дат ще немає (перше заповнення), ми просто пропускаємо цей крок.
+  if (task.startDate && task.endDate) {
     const conflict = checkWorkerConflict(workerId, task.startDate, task.endDate, task);
     if (conflict.hasConflict) {
       return setNotify({ 
         open: true, 
-        message: `Конфлікт! Цей робітник вже зайнятий у ці дати на етапі: ${conflict.stageName} (${conflict.taskName})`, 
+        message: `Конфлікт! Робітника вже зайнято: ${conflict.stageName}`, 
         severity: 'error' 
       });
     }
+  }
 
-    if (!task.assignedWorkers) task.assignedWorkers = [];
-    const alreadyAssigned = task.assignedWorkers.some(w => (typeof w === 'object' ? w._id : w) === workerId);
+  // 3. ДОДАВАННЯ РОБІТНИКА
+  if (!task.assignedWorkers) task.assignedWorkers = [];
+  
+  const alreadyAssigned = task.assignedWorkers.some(w => 
+    (typeof w === 'object' ? w._id : w) === workerId
+  );
+  
+  if (!alreadyAssigned) {
+    task.assignedWorkers.push(workerId);
+    setCurrentCalendarPlan(updated);
     
-    if (!alreadyAssigned) {
-      task.assignedWorkers.push(workerId);
-      setCurrentCalendarPlan(updated);
+    // ПІДКАЗКА: Можна додати автоматичне повідомлення, що тепер можна тиснути "Розрахувати"
+    if (task.assignedWorkers.length >= 2) {
+      console.log("Бригада сформована, готова до розрахунку за моделлю.");
     }
-  };
-
+  }
+};
   const handleRemoveWorkerFromTask = (sIdx, tIdx, workerId) => {
     const updated = { ...currentCalendarPlan };
     const task = updated.stages[sIdx].tasks[tIdx];
@@ -1288,7 +1329,158 @@ const TechnicalDashboard = () => {
       setNotify({ open: true, message: errorMsg, severity: 'error' }); 
     }
   };
+const handleApplyFullMathModel = () => {
+  if (!currentCalendarPlan || !currentCalendarPlan.stages) return;
 
+  const engine = MathModelEngine;
+  const Δ = engine.constants.Delta;
+  const { material, Xin } = modelParams;
+  const newPlan = JSON.parse(JSON.stringify(currentCalendarPlan));
+  let projectStart = new Date();
+
+  // Допоміжна перевірка валідності перед розрахунком
+  let validationError = "";
+  newPlan.stages.forEach(stage => {
+    stage.tasks.forEach(task => {
+      if (!task.assignedWorkers || task.assignedWorkers.length < 2) {
+        validationError = `Для завдання "${task.title}" потрібно мінімум 2 робітники!`;
+      }
+      if (task.volume < 0) {
+        validationError = `Об'єм завдання "${task.title}" не може бути від'ємним!`;
+      }
+    });
+  });
+
+  if (validationError) {
+    return setNotify({ open: true, message: validationError, severity: 'error' });
+  }
+
+  try {
+    // --- ЕТАП 1: ПІДГОТОВКА (i=1) ---
+    if (newPlan.stages[0]?.tasks?.length > 0) {
+      newPlan.stages[0].tasks.forEach(t => {
+        t.startDate = projectStart.toISOString();
+        const d = engine.calculateDuration(t.volume || 1, 'machine', t.assignedWorkers?.length);
+        t.endDate = engine.findFinishDate(projectStart, d).toISOString();
+      });
+    }
+
+    // --- ЕТАП 2: РОЗМІТКА (i=2) ---
+    const s0Tasks = newPlan.stages[0]?.tasks || [];
+    const t1Finish = s0Tasks.length > 0 
+      ? new Date(Math.max(...s0Tasks.map(t => new Date(t.endDate)))) 
+      : projectStart;
+
+    if (newPlan.stages[1]?.tasks?.length > 0) {
+      const t2Start = engine.findFinishDate(t1Finish, 1);
+      newPlan.stages[1].tasks.forEach((t, idx) => {
+        const startTime = (idx === 0) ? t2Start : new Date(newPlan.stages[1].tasks[idx - 1]?.endDate);
+        t.startDate = startTime.toISOString();
+        t.endDate = engine.findFinishDate(startTime, 1).toISOString();
+      });
+    }
+
+    // --- ЕТАП 3: ЗЕМЛЯНІ РОБОТИ (i=3) ---
+    const s1Tasks = newPlan.stages[1]?.tasks || [];
+    let t3Start = s1Tasks.length > 0 ? new Date(s1Tasks[s1Tasks.length - 1]?.endDate) : t1Finish;
+
+    if (newPlan.stages[2]?.tasks?.length > 0) {
+      newPlan.stages[2].tasks.forEach((t, idx) => {
+        t.startDate = t3Start.toISOString();
+        const d = engine.calculateDuration(t.volume || 1, idx === 0 ? 'machine' : 'manual', t.assignedWorkers?.length);
+        t.endDate = engine.findFinishDate(t3Start, d).toISOString();
+        if (idx < 3) t3Start = new Date(t.endDate); 
+      });
+    }
+
+    // --- ЕТАП 4: ФУНДАМЕНТ (i=4) ---
+    const s2Tasks = newPlan.stages[2]?.tasks || [];
+    if (newPlan.stages[3]?.tasks?.length > 0) {
+      const t3_3Fin = s2Tasks[2]?.endDate ? new Date(s2Tasks[2].endDate) : t3Start;
+      const t3_4Fin = s2Tasks[3]?.endDate ? new Date(s2Tasks[3].endDate) : t3_3Fin;
+      
+      // Логіка Xin: Опалубка (task[0]) чекає на Труби (s2Tasks[3]), якщо туалет всередині
+      const t4_1Start = (Xin === 1) ? new Date(Math.max(t3_3Fin, t3_4Fin)) : t3_3Fin;
+
+      newPlan.stages[3].tasks.forEach((t, idx) => {
+        if (idx === 0) { // Опалубка
+          t.startDate = t4_1Start.toISOString();
+          t.endDate = engine.findFinishDate(t4_1Start, 2).toISOString();
+        } else if (idx === 1) { // Армування
+          t.startDate = newPlan.stages[3].tasks[0].endDate;
+          t.endDate = engine.findFinishDate(new Date(t.startDate), 1).toISOString();
+        } else if (idx === 2) { // Бетонування
+          t.startDate = newPlan.stages[3].tasks[1].endDate;
+          t.endDate = engine.findFinishDate(new Date(t.startDate), 1).toISOString();
+        } else if (idx === 3) { // Демонтаж + Δ_form
+          const betonFinish = new Date(newPlan.stages[3].tasks[2].endDate);
+          t.startDate = engine.addTechPause(betonFinish, Δ.form).toISOString();
+          t.endDate = engine.findFinishDate(new Date(t.startDate), 1).toISOString();
+        }
+      });
+    }
+
+    // --- ЕТАП 5: МОНТАЖ (i=5) ---
+    const w4_3Fin = newPlan.stages[3]?.tasks[2]?.endDate ? new Date(newPlan.stages[3].tasks[2].endDate) : null;
+    
+    if (newPlan.stages[4]?.tasks?.length > 0 && w4_3Fin) {
+      const t5_1Start = engine.addTechPause(w4_3Fin, Δ.found); // 21 день набору міцності
+      
+      newPlan.stages[4].tasks.forEach((t, idx) => {
+        const startTime = (idx === 0) ? t5_1Start : new Date(newPlan.stages[4].tasks[idx-1].endDate);
+        t.startDate = startTime.toISOString();
+        
+        // Для стін (idx=0) враховуємо матеріал
+        const type = (idx === 0) ? material : 'manual';
+        const d = engine.calculateDuration(t.volume || 1, type, t.assignedWorkers?.length);
+        
+        // Для даху (idx=2) додаємо паузу Δ_belt
+        let finalStart = startTime;
+        if (idx === 2) finalStart = engine.addTechPause(new Date(newPlan.stages[4].tasks[1].endDate), Δ.belt);
+        
+        t.startDate = finalStart.toISOString();
+        t.endDate = engine.findFinishDate(finalStart, d || 5).toISOString();
+      });
+    }
+
+    // --- ЕТАП 6: ОЗДОБЛЕННЯ (i=6) ---
+    if (newPlan.stages[5]?.tasks?.length >= 3) {
+        const s4Finish = new Date(newPlan.stages[4].tasks[newPlan.stages[4].tasks.length-1].endDate);
+        
+        newPlan.stages[5].tasks.forEach((t, idx) => {
+            if (idx < 3) {
+                t.startDate = s4Finish.toISOString();
+                t.endDate = engine.findFinishDate(s4Finish, 5).toISOString();
+            } else if (idx === 3) { // Чистове оздоблення після подвійної паузи
+                const w6_2Fin = new Date(newPlan.stages[5].tasks[1].endDate);
+                const w6_3Fin = new Date(newPlan.stages[5].tasks[2].endDate);
+                const t6_4Start = new Date(Math.max(
+                    engine.addTechPause(w6_2Fin, Δ.plast).getTime(),
+                    engine.addTechPause(w6_3Fin, Δ.screed).getTime()
+                ));
+                t.startDate = t6_4Start.toISOString();
+                t.endDate = engine.findFinishDate(t6_4Start, 7).toISOString();
+            }
+        });
+    }
+
+    // --- ЕТАП 7: ЗДАЧА (Кінець проєкту) ---
+    if (newPlan.stages[6]?.tasks?.length > 0) {
+        const lastTaskFinish = new Date(newPlan.stages[5].tasks[newPlan.stages[5].tasks.length-1].endDate);
+        newPlan.stages[6].tasks.forEach(t => {
+            t.startDate = lastTaskFinish.toISOString();
+            t.endDate = engine.findFinishDate(lastTaskFinish, 1).toISOString();
+        });
+    }
+
+    setCurrentCalendarPlan(newPlan);
+    setNotify({ open: true, message: 'Графік розраховано за повною моделлю!', severity: 'success' });
+
+  } catch (e) {
+    console.error("Критична помилка розрахунку:", e);
+    setNotify({ open: true, message: 'Помилка: перевірте кількість завдань у кожному блоці!', severity: 'error' });
+  }
+};
   return (
     <DashboardWrapper>
       <GlobalStyle />
@@ -1345,105 +1537,207 @@ const TechnicalDashboard = () => {
                   <Button variant={calendarViewMode === 'gantt' ? "contained" : "outlined"} style={{background: calendarViewMode === 'gantt' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'gantt' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('gantt'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><BarChart3 size={16} style={{marginRight: '8px'}}/> Діаграма Ганта</Button>
                 </div>
 
-                {calendarViewMode === 'form' && (
-                  <>
-                    <SectionTitle><Calendar size={18}/> Графік виконання робіт</SectionTitle>
-                    <div style={{background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '30px'}}>
-                       <label style={{fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '8px', fontWeight: 700}}>ОБЕРІТЬ ОБ'ЄКТ ДЛЯ ПЛАНУВАННЯ</label>
-                       <select style={{width: '100%', padding: '15px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '12px'}} value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
-                          <option value="">Виберіть будівництво з техпланом...</option>
-                          {buildingObjects.filter(o => techPlansList.some(p => (p.objectId?._id || p.objectId) === o._id)).map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
-                       </select>
-                    </div>
-
-                    {currentCalendarPlan && (
-                      <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                        {currentCalendarPlan.stages.map((stage, sIdx) => (
-                          <div key={sIdx} style={{background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(56, 189, 248, 0.2)'}}>
-                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
-                               <h3 style={{margin: 0, color: '#38bdf8', fontSize: '16px', textTransform: 'uppercase'}}>{stage.name}</h3>
-                               <Button size="small" variant="outlined" onClick={() => handleAddTaskToStage(sIdx)}><Plus size={14}/> Додати завдання</Button>
-                            </div>
-                            {stage.tasks.length > 0 && (
-                              <TableContainer style={{marginBottom: 0, overflow: 'visible'}}>
-                                <StyledTable>
-                                  <thead><tr><th width="35%">Завдання</th><th width="15%">Початок</th><th width="15%">Кінець</th><th width="30%">Призначити робітників</th><th style={{textAlign:'right'}}>Дія</th></tr></thead>
-                                  <tbody>
-                                    {stage.tasks.map((task, tIdx) => (
-                                      <tr key={tIdx}>
-                                        <td style={{verticalAlign: 'top'}}><input style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%'}} value={task.title} onChange={(e) => handleTaskChange(sIdx, tIdx, 'title', e.target.value)} placeholder="Назва робіт..."/></td>
-                                        <td style={{verticalAlign: 'top'}}><input type="date" style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px'}} value={task.startDate ? task.startDate.split('T')[0] : ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'startDate', e.target.value)}/></td>
-                                        <td style={{verticalAlign: 'top'}}><input type="date" style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px'}} value={task.endDate ? task.endDate.split('T')[0] : ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'endDate', e.target.value)}/></td>
-                                        <td style={{verticalAlign: 'top'}}>
-                                          <div style={{display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px'}}>
-                                            {task.assignedWorkers?.map(wId => {
-                                              const actualId = typeof wId === 'object' ? wId._id : wId;
-                                              const w = workers.find(wo => wo._id === actualId);
-                                              return w ? (
-                                                <span key={actualId} style={{background:'#38bdf8', color:'#0a0f16', padding:'4px 8px', borderRadius:'6px', fontSize:'11px', display:'flex', alignItems:'center', gap:'6px', fontWeight: '700'}}>
-                                                  {w.lastName} {w.firstName[0]}. <X size={12} style={{cursor:'pointer'}} onClick={() => handleRemoveWorkerFromTask(sIdx, tIdx, actualId)} />
-                                                </span>
-                                              ) : null;
-                                            })}
-                                          </div>
-                          <select 
-  style={{background: '#0a0f16', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '10px', width: '100%', fontSize: '13px'}} 
-  value="" 
-  onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
->
-  <option value="" disabled>+ Обрати робітника...</option>
-  {(() => {
-    // 1. Отримуємо масив потрібних спеціалізацій для цього етапу
-    const requiredSpecs = getRequiredSpecialization(stage.name);
+         {calendarViewMode === 'form' && (
+  <>
+    <SectionTitle><Calendar size={18}/> Параметричне планування (Мат. Модель)</SectionTitle>
     
-    // 2. ЖОРСТКИЙ ФІЛЬТР: залишаємо тільки тих, хто:
-    // - Вільний загалом
-    // - Ще не призначений на цю задачу
-    // - МАЄ ТОЧНУ СПЕЦІАЛІЗАЦІЮ ДЛЯ ЦЬОГО ЕТАПУ
-    const matchingWorkers = workers.filter(w => 
-      w.isAvailable && 
-      !task.assignedWorkers?.some(aw => (typeof aw === 'object' ? aw._id : aw) === w._id) &&
-      requiredSpecs.includes(w.specialization)
-    );
+    {/* БЛОК ПАРАМЕТРІВ МОДЕЛІ (m, Xin) */}
+    <div style={{background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(56, 189, 248, 0.3)', marginBottom: '30px'}}>
+        <div style={{display: 'grid', gridTemplateColumns: '1.5fr 1fr 1.2fr 1fr', gap: '20px', alignItems: 'end'}}>
+            <InputGroup>
+                <label>1. Об'єкт будівництва</label>
+                <select value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
+                    <option value="">Оберіть об'єкт...</option>
+                    {buildingObjects.filter(o => techPlansList.some(p => (p.objectId?._id || p.objectId) === o._id)).map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
+                </select>
+            </InputGroup>
+            
+            <InputGroup>
+                <label>2. Матеріал стін (m)</label>
+                <select 
+                    value={modelParams.material} 
+                    onChange={e => setModelParams({...modelParams, material: e.target.value})}
+                >
+                    <option value="gasblock">Газоблок (N=2)</option>
+                    <option value="brick">Цегла (N=6)</option>
+                </select>
+            </InputGroup>
+            
+            <div style={{display:'flex', flexDirection:'column', gap:'8px', paddingBottom: '5px'}}>
+                <label style={{fontSize:'11px', color:'#94a3b8', fontWeight:700}}>3. ТОПОЛОГІЯ (Xin)</label>
+                <div style={{background: '#0f172a', padding: '6px 12px', borderRadius: '10px', border: '1px solid #334155'}}>
+                   <FormControlLabel 
+                     control={
+                        <Switch 
+                            checked={modelParams.Xin === 1} 
+                            onChange={e => setModelParams({...modelParams, Xin: e.target.checked ? 1 : 0})} 
+                            color="primary" 
+                        />
+                     } 
+                     label={<span style={{fontSize:'12px', color:'#e2e8f0'}}>{modelParams.Xin === 1 ? "Санвузол всередині" : "Санвузол зовні"}</span>} 
+                   />
+                </div>
+            </div>
 
-    // 3. Якщо вільних спеціалістів немає - показуємо повідомлення прямо в списку
-    if (matchingWorkers.length === 0) {
-      return <option value="" disabled>Немає вільних робітників цієї кваліфікації</option>;
-    }
+            <ActionButton 
+                onClick={handleApplyFullMathModel} 
+                disabled={!selectedCalendarObject} 
+                style={{height: '48px', background: 'linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)', color: '#0a0f16'}}
+            >
+                <Zap size={18}/> РОЗРАХУВАТИ ГРАФІК
+            </ActionButton>
+        </div>
+    </div>
 
-    // 4. Виводимо ідеально відфільтрований список
-    return matchingWorkers.map(w => (
-      <option key={w._id} value={w._id}>
-        {w.lastName} {w.firstName} ({w.specialization})
-      </option>
-    ));
-  })()}
-</select>
-                                        </td>
-                                        <td style={{textAlign:'right', verticalAlign: 'top'}}><IconButton style={{color:'#ef4444'}} onClick={() => { const upd = {...currentCalendarPlan}; upd.stages[sIdx].tasks.splice(tIdx, 1); setCurrentCalendarPlan(upd); }}><Trash2 size={16}/></IconButton></td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </StyledTable>
-                              </TableContainer>
-                            )}
-                          </div>
-                        ))}
-                        <ActionButton onClick={handleSaveCalendarPlan} style={{width: '100%', height: '60px', justifyContent: 'center', marginTop: '10px'}}><ClipboardCheck size={20}/> ЗАТВЕРДИТИ ГРАФІК ТА ПРИЗНАЧИТИ РОБІТНИКІВ</ActionButton>
+    {/* ВІДОБРАЖЕННЯ ЕТАПІВ ТА ТАБЛИЦЬ ЗАВДАНЬ */}
+{currentCalendarPlan && (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', marginTop: '20px' }}>
+    {currentCalendarPlan.stages.map((stage, sIdx) => {
+      const name = stage.name.toUpperCase();
+      let minTasks = 1;
+      let hint = "Додайте завдання";
+      
+      // Логіка пам'ятки згідно з вимогами мат. моделі
+      if (name.includes('ЗЕМЛЯНІ')) { minTasks = 4; hint = "1.Траншеї, 2.Основа, 3.Засипка, 4.Труби (Xin)"; }
+      else if (name.includes('ФУНДАМЕНТ')) { minTasks = 4; hint = "1.Опалубка, 2.Армування, 3.Бетон (Δ form), 4.Демонтаж"; }
+      else if (name.includes('МОНТАЖ')) { minTasks = 3; hint = "1.Стіни (m), 2.Армопояс, 3.Дах (Δ belt)"; }
+      else if (name.includes('ОЗДОБЛЕННЯ')) { minTasks = 4; hint = "1.Електрика, 2.Штукатурка (Δ plast), 3.Стяжка (Δ screed), 4.Фініш"; }
+
+      const isInvalid = stage.tasks.length < minTasks;
+
+      return (
+        <div key={sIdx} style={{ 
+          background: 'rgba(15, 23, 42, 0.6)', 
+          borderRadius: '24px', 
+          padding: '24px', 
+          border: isInvalid ? '2px solid #ef4444' : '1px solid rgba(56, 189, 248, 0.3)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div>
+              <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '18px' }}>{stage.name}</h3>
+              <div style={{ 
+                marginTop: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                background: isInvalid ? 'rgba(239, 68, 68, 0.1)' : 'rgba(74, 222, 128, 0.1)', 
+                color: isInvalid ? '#f87171' : '#4ade80',
+                display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                {isInvalid ? <AlertTriangle size={14}/> : <CheckCircle size={14}/>}
+                ПАМ'ЯТКА: {hint} (Зараз: {stage.tasks.length}/{minTasks})
+              </div>
+            </div>
+            <Button variant="outlined" size="small" onClick={() => handleAddTaskToStage(sIdx)} style={{ color: '#38bdf8', borderColor: '#38bdf8' }}>
+              <Plus size={16}/> Додати роботу
+            </Button>
+          </div>
+
+          {stage.tasks.length > 0 && (
+            <StyledTable>
+              <thead>
+                <tr>
+                  <th width="12%">Об'єм V</th>
+                  <th width="28%">Назва завдання</th>
+                  <th width="15%">Початок</th>
+                  <th width="15%">Кінець</th>
+                  <th width="20%">Бригада (R ≥ 2)</th>
+                  <th width="10%" style={{ textAlign: 'right' }}>Дія</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stage.tasks.map((task, tIdx) => (
+                  <tr key={tIdx}>
+                    <td>
+                      <input 
+                        type="number" 
+                        min="0"
+                        style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontWeight: '900', textAlign: 'center' }}
+                        value={task.volume || ''} 
+                        onChange={(e) => handleTaskChange(sIdx, tIdx, 'volume', Math.max(0, e.target.value))} 
+                      />
+                    </td>
+                    <td>
+                      <input 
+                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%' }} 
+                        value={task.title} 
+                        onChange={(e) => handleTaskChange(sIdx, tIdx, 'title', e.target.value)}
+                        placeholder="Назва..."
+                      />
+                    </td>
+                    <td><div style={{ color: '#94a3b8', fontSize: '13px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'}</div></td>
+                    <td><div style={{ color: '#38bdf8', fontSize: '13px', fontWeight: 'bold' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</div></td>
+                    <td>
+                      {/* ВИКОРИСТАННЯ getRequiredSpecialization ДЛЯ ФІЛЬТРАЦІЇ */}
+                      <select 
+                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }}
+                        value="" 
+                        onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
+                      >
+                        <option value="" disabled>+ Додати в бригаду</option>
+                        {workers
+                          .filter(w => w.isAvailable && getRequiredSpecialization(stage.name).includes(w.specialization))
+                          .map(w => (
+                            <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
+                          ))
+                        }
+                      </select>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
+                        {task.assignedWorkers?.map(wId => {
+                          const w = workers.find(wo => wo._id === (typeof wId === 'object' ? wId._id : wId));
+                          return w && (
+                            <span key={w._id} style={{ background: '#38bdf8', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {w.lastName} 
+                              {/* ВИКОРИСТАННЯ handleRemoveWorkerFromTask */}
+                              <X size={10} style={{ cursor: 'pointer' }} onClick={() => handleRemoveWorkerFromTask(sIdx, tIdx, w._id)} />
+                            </span>
+                          );
+                        })}
                       </div>
-                    )}
-                  </>
-                )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <IconButton onClick={() => {
+                        const upd = {...currentCalendarPlan};
+                        upd.stages[sIdx].tasks.splice(tIdx, 1);
+                        setCurrentCalendarPlan(upd);
+                      }} style={{ color: '#ef4444' }}><Trash2 size={16}/></IconButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </StyledTable>
+          )}
+        </div>
+      );
+    })}
 
-                {calendarViewMode === 'list' && (
-                  <>
-                    <SectionTitle><ListFilter size={18}/> Затверджені графіки об'єктів</SectionTitle>
-                    <TableContainer><StyledTable>
-                      <thead><tr><th>Об'єкт</th><th>Дата створення</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
-                      <tbody>{filteredCalendarPlans.map(plan => (<tr key={plan._id}><td><b>{plan.objectId?.address}</b></td><td>{new Date(plan.createdAt).toLocaleDateString()}</td><td style={{textAlign: 'right'}}><IconButton onClick={() => handlePrintCalendarPlan(plan)} style={{color: '#38bdf8'}} title="Друк графіка"><Printer size={18}/></IconButton><IconButton onClick={() => handleDeleteCalendarPlan(plan._id)} style={{color: '#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton></td></tr>))}</tbody>
-                    </StyledTable></TableContainer>
-                  </>
-                )}
+    {/* КНОПКА РОЗРАХУНКУ */}
+    <ActionButton 
+      onClick={handleApplyFullMathModel} 
+      style={{ width: '100%', height: '60px', background: 'linear-gradient(90deg, #38bdf8, #2dd4bf)', color: '#0f172a', fontSize: '18px', fontWeight: '900' }}
+    >
+      <Zap size={24} /> РОЗРАХУВАТИ ГРАФІК (МАТ. МОДЕЛЬ)
+    </ActionButton>
+
+    {/* ВИКОРИСТАННЯ handleSaveCalendarPlan */}
+    <ActionButton 
+      onClick={handleSaveCalendarPlan} 
+      style={{ width: '100%', height: '60px', background: '#22c55e', color: 'white' }}
+    >
+      <ClipboardCheck size={20} /> ЗАТВЕРДИТИ ТА ЗБЕРЕГТИ В БД
+    </ActionButton>
+  </div>
+)}
+
+  </>
+)}
+
+{calendarViewMode === 'list' && (
+  <>
+    <SectionTitle><ListFilter size={18}/> Затверджені графіки об'єктів</SectionTitle>
+    <TableContainer><StyledTable>
+      <thead><tr><th>Об'єкт</th><th>Дата створення</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
+      <tbody>{filteredCalendarPlans.map(plan => (<tr key={plan._id}><td><b>{plan.objectId?.address}</b></td><td>{new Date(plan.createdAt).toLocaleDateString()}</td><td style={{textAlign: 'right'}}><IconButton onClick={() => handlePrintCalendarPlan(plan)} style={{color: '#38bdf8'}} title="Друк графіка"><Printer size={18}/></IconButton><IconButton onClick={() => handleDeleteCalendarPlan(plan._id)} style={{color: '#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton></td></tr>))}</tbody>
+    </StyledTable></TableContainer>
+  </>
+)}
 
                 {/* Вкладка Ганта */}
                 {calendarViewMode === 'gantt' && (

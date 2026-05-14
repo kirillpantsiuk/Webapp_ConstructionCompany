@@ -7,7 +7,7 @@ import {
   CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info,
   Map as MapIcon, ChevronRight, ChevronLeft, Check, ClipboardCheck, ShoppingCart,
   Home as HouseIcon, Wrench, Hammer, PackagePlus, ListChecks, ListFilter,
-  Calendar, Users, CalendarDays, List, BarChart3,CheckCircle,  FolderTree, CornerDownRight
+  Calendar, Users, CalendarDays, List, BarChart3,CheckCircle,  FolderTree, CornerDownRight,FileBarChart, FileSearch
 } from 'lucide-react';
 
 import { Gantt, ViewMode } from 'gantt-task-react';
@@ -98,6 +98,79 @@ const GlobalStyle = createGlobalStyle`
   .gantt-container svg text[y="25"],
   .gantt-container svg text[y="26"] {
     fill: #e2e8f0 !important;
+  }
+    @media print {
+    /* 1. Налаштування сторінки: Альбомна орієнтація та мінімальні поля */
+    @page { 
+      size: landscape; 
+      margin: 5mm; 
+    }
+
+    /* 2. ПОВНЕ ВИДАЛЕННЯ ІНТЕРФЕЙСУ САЙТУ */
+    /* Приховуємо хедер, пошук, бокову панель, кнопки, вкладки та іконки */
+    header, nav, aside, footer, button, .no-print,
+    .MuiIconButton-root, .MuiTabs-root, [role="tablist"],
+    div[class*="HeaderSection"], /* Селектор для твого HeaderSection */
+    div[class*="UserInfoContainer"],
+    svg, /* Приховуємо всі іконки, крім тих, що всередині звіту */
+    input, select {
+      display: none !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      visibility: hidden !important;
+    }
+
+    body {
+      background: white !important;
+      color: black !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    /* 3. УЩІЛЬНЕННЯ ЗВІТУ ДЛЯ КОМПАКТНОСТІ */
+    #printable-report {
+      display: block !important;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100% !important;
+      background: white !important;
+      padding: 10mm !important; /* Менші внутрішні відступи */
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Робимо таблиці компактними */
+    table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin-bottom: 10px !important;
+      font-size: 11px !important; /* Зменшений шрифт для компактності */
+    }
+    
+    th {
+      background: #f1f5f9 !important;
+      border: 1px solid #000 !important;
+      padding: 4px 8px !important;
+      text-transform: uppercase;
+    }
+
+    td {
+      border: 1px solid #000 !important;
+      padding: 3px 8px !important;
+    }
+
+    .report-stage-block {
+      page-break-inside: avoid;
+      margin-bottom: 15px !important; /* Менша відстань між етапами */
+    }
+
+    h1, h2, h3, h4 { 
+      color: black !important; 
+      margin-top: 5px !important;
+      margin-bottom: 5px !important;
+    }
   }
 `;
 
@@ -351,6 +424,7 @@ const TechnicalDashboard = () => {
   const [workers, setWorkers] = useState([]); 
   const [calendarPlans, setCalendarPlans] = useState([]);
   const [selectedCalendarObject, setSelectedCalendarObject] = useState('');
+  const [selectedReportObject, setSelectedReportObject] = useState('');
   const [currentCalendarPlan, setCurrentCalendarPlan] = useState(null);
   const [calendarViewMode, setCalendarViewMode] = useState('form'); 
 const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 });
@@ -1717,7 +1791,15 @@ const handleAutoAssignWorkers = () => {
                   <Button variant={calendarViewMode === 'form' ? "contained" : "outlined"} style={{background: calendarViewMode === 'form' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'form' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('form'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><CalendarDays size={16} style={{marginRight: '8px'}}/> Формування</Button>
                   <Button variant={calendarViewMode === 'list' ? "contained" : "outlined"} style={{background: calendarViewMode === 'list' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'list' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('list'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><List size={16} style={{marginRight: '8px'}}/> Список графіків</Button>
                   <Button variant={calendarViewMode === 'gantt' ? "contained" : "outlined"} style={{background: calendarViewMode === 'gantt' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'gantt' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('gantt'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><BarChart3 size={16} style={{marginRight: '8px'}}/> Діаграма Ганта</Button>
+                <Button 
+  variant={calendarViewMode === 'report' ? "contained" : "outlined"} 
+  style={{ background: calendarViewMode === 'report' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'report' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} 
+  onClick={() => { setCalendarViewMode('report'); setSelectedReportObject(''); }}
+>
+  <FileText size={16} style={{ marginRight: '8px' }} /> Звіт з будівництва
+</Button>
                 </div>
+
 
          {calendarViewMode === 'form' && (
   <>
@@ -2016,7 +2098,127 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
                 )}
               </div>
             )}
+          {/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
+{calendarViewMode === 'report' && (
+  <div style={{ animation: 'fadeIn 0.5s ease' }}>
+    {/* КЕРУВАННЯ (no-print приховає це при друці) */}
+    <div className="no-print">
+      <SectionTitle><FileBarChart size={18}/> Генерація технічного звіту</SectionTitle>
 
+      <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '20px', alignItems: 'end' }}>
+          <InputGroup>
+            <label>Оберіть об'єкт для аналітики</label>
+            <select value={selectedReportObject} onChange={(e) => setSelectedReportObject(e.target.value)}>
+              <option value="">Виберіть об'єкт зі списку...</option>
+              {buildingObjects.map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
+            </select>
+          </InputGroup>
+          <ActionButton 
+            style={{ height: '48px', background: '#38bdf8', color: '#0f172a', fontWeight: 800, borderRadius: '12px' }}
+            onClick={() => window.print()} 
+            disabled={!selectedReportObject}
+          >
+            <Printer size={18} /> СФОРМУВАТИ PDF
+          </ActionButton>
+        </div>
+      </div>
+    </div>
+
+    {/* ОСНОВНЕ ТІЛО ЗВІТУ (Альбомний формат) */}
+    {selectedReportObject ? (
+      <div id="printable-report" style={{ 
+        background: 'rgba(15, 23, 42, 0.6)', 
+        padding: '40px 60px', 
+        borderRadius: '24px', 
+        border: '1px solid #1e293b',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+      }}>
+        
+        {/* ФІРМОВА ШАПКА */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #38bdf8', paddingBottom: '15px', marginBottom: '30px' }}>
+          <div>
+            <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '26px', fontWeight: 900, letterSpacing: '-1px' }}>BUILD CRM</h1>
+            <p style={{ color: '#94a3b8', fontSize: '10px', margin: 0, textTransform: 'uppercase', fontWeight: 700 }}>Система технічного координатування будівництва</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc' }}>ЗВІТ № {selectedReportObject.slice(-6).toUpperCase()}</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Дата: {new Date().toLocaleDateString('uk-UA')}</div>
+          </div>
+        </div>
+
+        {/* ЗАГОЛОВОК ДОКУМЕНТА */}
+        <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+          <h2 style={{ color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '20px', margin: 0 }}>
+            Звіт про виконання будівельних робіт
+          </h2>
+          <div style={{ marginTop: '10px', display: 'inline-block', padding: '6px 20px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '50px' }}>
+            <span style={{ color: '#94a3b8', fontSize: '11px', marginRight: '8px' }}>ОБ'ЄКТ:</span>
+            <span style={{ color: '#f8fafc', fontWeight: 700, fontSize: '15px' }}>{buildingObjects.find(o => o._id === selectedReportObject)?.address}</span>
+          </div>
+        </div>
+
+        {/* ДАНІ ПО ЕТАПАХ */}
+        {calendarPlans
+          .filter(plan => (plan.objectId?._id || plan.objectId) === selectedReportObject)
+          .map((plan, pIdx) => (
+            <div key={pIdx}>
+              {plan.stages.map((stage, sIdx) => (
+                <div key={sIdx} className="report-stage-block" style={{ marginBottom: '30px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                     <div style={{ width: '4px', height: '18px', background: '#38bdf8' }}></div>
+                     <h4 style={{ color: '#38bdf8', margin: 0, textTransform: 'uppercase', fontSize: '13px', fontWeight: 800 }}>{stage.name}</h4>
+                  </div>
+                  
+                  <StyledTable style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th width="50%">Технологічна операція</th>
+                        <th width="10%">Об'єм</th>
+                        <th width="20%">Початок</th>
+                        <th width="20%">Кінець</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stage.tasks.map((task, tIdx) => (
+                        <tr key={tIdx}>
+                          <td style={{ color: '#f8fafc', fontWeight: 500 }}>{task.title}</td>
+                          <td style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 800 }}>{task.volume}</td>
+                          <td style={{ textAlign: 'center', fontSize: '12px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString('uk-UA') : '—'}</td>
+                          <td style={{ textAlign: 'center', color: '#4ade80', fontWeight: 700, fontSize: '12px' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString('uk-UA') : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </StyledTable>
+                </div>
+              ))}
+            </div>
+          ))}
+
+        {/* БЛОК ПІДПИСІВ (ДЛЯ ЮРИДИЧНОЇ СИЛИ) */}
+        <div style={{ marginTop: '60px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+          <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Технічний координатор</p>
+            <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
+          </div>
+          <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Відповідальний виконавець</p>
+            <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '9px', color: '#334155' }} className="no-print">
+          Звіт згенеровано автоматично CRM-системою технічного нагляду.
+        </div>
+      </div>
+    ) : (
+      <div style={{ textAlign: 'center', padding: '100px', background: 'rgba(30, 41, 59, 0.2)', borderRadius: '24px', border: '2px dashed #1e293b' }}>
+        <FileBarChart size={50} color="#1e293b" style={{ marginBottom: '15px' }} />
+        <p style={{ color: '#64748b', fontSize: '15px' }}>Будь ласка, оберіть об'єкт для генерації технічного звіту</p>
+      </div>
+    )}
+  </div>
+)}
             {/* ВКЛАДКА: МАТЕРІАЛИ ТА ІНСТРУМЕНТИ */}
             {activeTab === 'supplies' && (
               <div style={{animation: 'fadeIn 0.3s'}}>

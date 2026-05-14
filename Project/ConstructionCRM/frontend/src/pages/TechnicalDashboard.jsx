@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
+import * as XLSX from 'xlsx';
 import { 
   LogOut, Menu, X, LayoutDashboard, Edit, Trash2, Printer, Plus, Home, MapPin, 
   AlertTriangle, Eye, Zap, Truck, Construction, Droplets, Flame, ShieldAlert, 
@@ -213,17 +214,65 @@ const CancelLogoutLink = styled.div` color: #94a3b8; font-size: 14px; margin-top
 
 // --- ФУНКЦІЯ ВИЗНАЧЕННЯ СПЕЦІАЛІЗАЦІЙ ЗА ЕТАПОМ (ОНОВЛЕНА) ---
 const getRequiredSpecialization = (stageName) => {
-  if (!stageName) return [];
+  if (!stageName) return null;
   const name = stageName.toUpperCase();
   
-  if (name.includes('ПІДГОТОВКА')) return ['Водій самоскида (Підготовка)', 'Різноробочий (Підготовка)'];
-  if (name.includes('РОЗМІТКА')) return ['Геодезист (Розмітка)'];
-  if (name.includes('ЗЕМЛЯНІ')) return ['Екскаваторник (Земляні роботи)'];
-  if (name.includes('ФУНДАМЕНТ')) return ['Бетоняр-арматурник (Фундамент)', 'Зварювальник (Фундамент)'];
-  if (name.includes('МОНТАЖ')) return ['Муляр (Монтаж стін)', 'Монтажник металоконструкцій (Монтаж)', 'Покрівельник (Монтаж даху)', 'Кранівник (Монтаж)', 'Монтажник вікон та дверей (Монтаж)'];
-  if (name.includes('ОЗДОБЛЕННЯ')) return ['Електрик-монтажник (Оздоблення)', 'Сантехнік-опалювальник (Оздоблення)', 'Маляр-штукатур (Оздоблення)', 'Плиточник-облицювальник (Оздоблення)', 'Гіпсокартонщик (Оздоблення)', 'Фасадчик (Оздоблення)'];
+  // КРОК 01: Підготовка
+  if (name.includes('ПІДГОТОВКА')) {
+    return ['Водій самоскида (Підготовка)', 'Різноробочий (Підготовка)'];
+  }
   
-  return []; // Повертає порожній масив, якщо немає жорстких обмежень
+  // КРОК 02: Розмітка
+  if (name.includes('РОЗМІТКА')) {
+    return ['Геодезист (Розмітка)'];
+  }
+  
+  // КРОК 03: Земляні роботи
+  if (name.includes('ЗЕМЛЯНІ')) {
+    return ['Екскаваторник (Земляні роботи)', 'Різноробочий (Підготовка)'];
+  }
+  
+  // КРОК 04: Фундамент
+  if (name.includes('ФУНДАМЕНТ')) {
+    return ['Бетоняр-арматурник (Фундамент)', 'Зварювальник (Фундамент)', 'Різноробочий (Підготовка)'];
+  }
+  
+  // КРОК 05: Монтаж (Стіни, дах, перекриття)
+  if (name.includes('МОНТАЖ')) {
+    return [
+      'Муляр (Монтаж стін)', 
+      'Монтажник металоконструкцій (Монтаж)', 
+      'Покрівельник (Монтаж даху)', 
+      'Кранівник (Монтаж)', 
+      'Монтажник вікон та дверей (Монтаж)'
+    ];
+  }
+  
+  // КРОК 06: Оздоблення
+  if (name.includes('ОЗДОБЛЕННЯ')) {
+    return [
+      'Електрик-монтажник (Оздоблення)', 
+      'Сантехнік-опалювальник (Оздоблення)', 
+      'Маляр-штукатур (Оздоблення)', 
+      'Плиточник-облицювальник (Оздоблення)', 
+      'Гіпсокартонщик (Оздоблення)', 
+      'Фасадчик (Оздоблення)'
+    ];
+  }
+  
+  // КРОК 07: Здача (додаємо керівництво для підписання актів)
+  if (name.includes('ЗДАЧА') || name.includes('ФІНАЛ') || name.includes('ЗАВЕРШЕННЯ')) {
+    return [
+      'Різноробочий (Підготовка)', 
+      'Маляр-штукатур (Оздоблення)', 
+      'Виконроб (Керівництво)', 
+      'Головний інженер (Керівництво)'
+    ];
+  }
+
+  // Якщо назва етапу не збіглася з жодним шаблоном — повертаємо null.
+  // Це сигнал для фільтра показати ВСІХ вільних робітників, щоб не було порожнього списку.
+  return null; 
 };
 // --- ФУНКЦІЯ КОЛЬОРОВОГО КОДУВАННЯ ЕТАПІВ ДЛЯ ГАНТА ---
 const getStageColors = (stageName) => {
@@ -873,7 +922,61 @@ const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 })
   const filteredObjects = useMemo(() => buildingObjects.filter(obj => obj.address.toLowerCase().includes(searchTerm.toLowerCase())), [buildingObjects, searchTerm]);
   const objectsWithInspection = useMemo(() => buildingObjects.filter(obj => inspections.some(ins => (ins.objectId?._id || ins.objectId) === obj._id)), [buildingObjects, inspections]);
   const materialsByStage = useMemo(() => (activeStep >= 4 && activeStep <= 6) ? materials.filter(m => m.stage === activeStep) : [], [materials, activeStep]);
+// 2. Логіка фільтрації зайнятих робітників
+const assignedWorkerIdsInCurrentPlan = useMemo(() => {
+  if (!currentCalendarPlan) return new Set();
+  const ids = new Set();
+  currentCalendarPlan.stages.forEach(stage => {
+    stage.tasks.forEach(task => {
+      task.assignedWorkers?.forEach(w => {
+        const id = typeof w === 'object' ? w._id : w;
+        ids.add(id);
+      });
+    });
+  });
+  return ids;
+}, [currentCalendarPlan]);
 
+// 3. Функція імпорту з Excel
+const handleImportExcel = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const bstr = evt.target.result;
+    const wb = XLSX.read(bstr, { type: 'binary' });
+    const wsname = wb.SheetNames[0];
+    const ws = wb.Sheets[wsname];
+    const data = XLSX.utils.sheet_to_json(ws);
+
+    // Очікуваний формат колонок: Етап, Назва, Об'єм
+    const stagesMap = {};
+    data.forEach(row => {
+      const stageName = row['Етап'] || 'Інше';
+      if (!stagesMap[stageName]) stagesMap[stageName] = [];
+      stagesMap[stageName].push({
+        title: row['Назва'] || 'Нове завдання',
+        volume: Number(row['Об\'єм']) || 0,
+        startDate: '',
+        endDate: '',
+        assignedWorkers: []
+      });
+    });
+
+    const newStages = Object.keys(stagesMap).map(name => ({
+      name,
+      tasks: stagesMap[name]
+    }));
+
+    setCurrentCalendarPlan({
+      ...currentCalendarPlan,
+      stages: newStages
+    });
+    setNotify({ open: true, message: 'План успішно імпортовано з Excel!', severity: 'success' });
+  };
+  reader.readAsBinaryString(file);
+};
   // --- ЛОГІКА КАЛЕНДАРНОГО ПЛАНУВАННЯ ---
   const handleSelectObjectForCalendar = (id) => {
     setSelectedCalendarObject(id);
@@ -1481,6 +1584,85 @@ const handleApplyFullMathModel = () => {
     setNotify({ open: true, message: 'Помилка: перевірте кількість завдань у кожному блоці!', severity: 'error' });
   }
 };
+const handleAutoAssignWorkers = () => {
+  if (!currentCalendarPlan) return;
+
+  const updatedPlan = JSON.parse(JSON.stringify(currentCalendarPlan));
+  const globallyUsedWorkerIds = new Set();
+
+  // Допоміжна функція для визначення нормативного R згідно з моделлю
+  const getTargetCount = (stageName, taskTitle) => {
+    const sName = stageName.toUpperCase();
+    const tTitle = (taskTitle || '').toUpperCase();
+
+    if (sName.includes('ПІДГОТОВКА')) return 3;
+    if (sName.includes('РОЗМІТКА')) return 2;
+    
+    if (sName.includes('ЗЕМЛЯНІ')) {
+      if (tTitle.includes('РИТТЯ') || tTitle.includes('ТРАНШЕЙ')) return 3;
+      return 2;
+    }
+    
+    if (sName.includes('ФУНДАМЕНТ')) {
+      if (tTitle.includes('БЕТОНУВАННЯ')) return 4;
+      if (tTitle.includes('ОПАЛУБКА') || tTitle.includes('АРМУВАННЯ')) return 3;
+      return 2;
+    }
+    
+    if (sName.includes('МОНТАЖ')) {
+      if (tTitle.includes('СТІН')) return 4;
+      return 3;
+    }
+    
+    if (sName.includes('ОЗДОБЛЕННЯ')) {
+      if (tTitle.includes('ШТУКАТУРКА') || tTitle.includes('СТЯЖКА')) return 3;
+      return 2;
+    }
+    
+    if (sName.includes('ЗДАЧА')) return 2;
+    
+    return 2; // Значення за замовчуванням
+  };
+
+  updatedPlan.stages.forEach((stage) => {
+    const requiredSpecs = getRequiredSpecialization(stage.name) || [];
+
+    stage.tasks.forEach((task) => {
+      // Отримуємо точну кількість робітників для цієї конкретної задачі
+      const targetCount = getTargetCount(stage.name, task.title);
+      
+      if (!task.assignedWorkers) task.assignedWorkers = [];
+
+      // Фільтруємо кандидатів
+      const candidates = workers.filter(w => 
+        w.isAvailable && 
+        requiredSpecs.includes(w.specialization) && 
+        !globallyUsedWorkerIds.has(w._id)
+      );
+
+      let currentCount = task.assignedWorkers.length;
+
+      for (const worker of candidates) {
+        if (currentCount >= targetCount) break;
+
+        const wId = worker._id;
+        // Додаємо, якщо робітник ще не в цій задачі
+        if (!task.assignedWorkers.some(id => (typeof id === 'object' ? id._id : id) === wId)) {
+          task.assignedWorkers.push(wId);
+          globallyUsedWorkerIds.add(wId);
+          currentCount++;
+        }
+      }
+    });
+  });
+
+  setCurrentCalendarPlan(updatedPlan);
+  setNotify({ 
+    open: true, 
+    message: `Успішно! Розподілено ${globallyUsedWorkerIds.size} фахівців згідно з мат. моделлю.`, 
+    severity: 'success' 
+  });
+};
   return (
     <DashboardWrapper>
       <GlobalStyle />
@@ -1541,53 +1723,111 @@ const handleApplyFullMathModel = () => {
   <>
     <SectionTitle><Calendar size={18}/> Параметричне планування (Мат. Модель)</SectionTitle>
     
-    {/* БЛОК ПАРАМЕТРІВ МОДЕЛІ (m, Xin) */}
-    <div style={{background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(56, 189, 248, 0.3)', marginBottom: '30px'}}>
-        <div style={{display: 'grid', gridTemplateColumns: '1.5fr 1fr 1.2fr 1fr', gap: '20px', alignItems: 'end'}}>
-            <InputGroup>
-                <label>1. Об'єкт будівництва</label>
-                <select value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
-                    <option value="">Оберіть об'єкт...</option>
-                    {buildingObjects.filter(o => techPlansList.some(p => (p.objectId?._id || p.objectId) === o._id)).map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
-                </select>
-            </InputGroup>
-            
-            <InputGroup>
-                <label>2. Матеріал стін (m)</label>
-                <select 
-                    value={modelParams.material} 
-                    onChange={e => setModelParams({...modelParams, material: e.target.value})}
-                >
-                    <option value="gasblock">Газоблок (N=2)</option>
-                    <option value="brick">Цегла (N=6)</option>
-                </select>
-            </InputGroup>
-            
-            <div style={{display:'flex', flexDirection:'column', gap:'8px', paddingBottom: '5px'}}>
-                <label style={{fontSize:'11px', color:'#94a3b8', fontWeight:700}}>3. ТОПОЛОГІЯ (Xin)</label>
-                <div style={{background: '#0f172a', padding: '6px 12px', borderRadius: '10px', border: '1px solid #334155'}}>
-                   <FormControlLabel 
-                     control={
-                        <Switch 
-                            checked={modelParams.Xin === 1} 
-                            onChange={e => setModelParams({...modelParams, Xin: e.target.checked ? 1 : 0})} 
-                            color="primary" 
-                        />
-                     } 
-                     label={<span style={{fontSize:'12px', color:'#e2e8f0'}}>{modelParams.Xin === 1 ? "Санвузол всередині" : "Санвузол зовні"}</span>} 
-                   />
-                </div>
-            </div>
+   {/* БЛОК ПАРАМЕТРІВ МОДЕЛІ (m, Xin) */}
+<div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.8fr', gap: '15px', alignItems: 'end' }}>
+        <InputGroup>
+            <label>1. Об'єкт будівництва</label>
+            <select value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
+                <option value="">Оберіть об'єкт...</option>
+                {buildingObjects.filter(o => techPlansList.some(p => (p.objectId?._id || p.objectId) === o._id)).map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
+            </select>
+        </InputGroup>
 
-            <ActionButton 
-                onClick={handleApplyFullMathModel} 
-                disabled={!selectedCalendarObject} 
-                style={{height: '48px', background: 'linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)', color: '#0a0f16'}}
+        <InputGroup>
+            <label>2. Матеріал стін (m)</label>
+            <select
+                value={modelParams.material}
+                onChange={e => setModelParams({ ...modelParams, material: e.target.value })}
             >
-                <Zap size={18}/> РОЗРАХУВАТИ ГРАФІК
+                <option value="gasblock">Газоблок (N=2)</option>
+                <option value="brick">Цегла (N=6)</option>
+            </select>
+        </InputGroup>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '5px' }}>
+            <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700 }}>3. ТОПОЛОГІЯ (Xin)</label>
+            <div style={{ background: '#0f172a', padding: '6px 12px', borderRadius: '10px', border: '1px solid #334155' }}>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={modelParams.Xin === 1}
+                            onChange={e => setModelParams({ ...modelParams, Xin: e.target.checked ? 1 : 0 })}
+                            color="primary"
+                        />
+                    }
+                    label={<span style={{ fontSize: '12px', color: '#e2e8f0' }}>{modelParams.Xin === 1 ? "Всередині" : "Зовні"}</span>}
+                />
+            </div>
+        </div>
+
+        {/* ГРУПА КНОПОК У 4-Й КОЛОНЦІ */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+            <ActionButton
+                onClick={handleAutoAssignWorkers}
+                disabled={!selectedCalendarObject}
+                style={{ flex: 1, height: '48px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', color: '#38bdf8' }}
+                title="Автоматично призначити вільних козаків"
+            >
+                <Users size={18} /> АВТОМАТИЧНИЙ РОЗПОДІЛ
+            </ActionButton>
+
+            <ActionButton
+                onClick={handleApplyFullMathModel}
+                disabled={!selectedCalendarObject}
+                style={{ flex: 1.2, height: '48px', background: 'linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)', color: '#0a0f16' }}
+            >
+                <Zap size={18} /> РОЗРАХУВАТИ
             </ActionButton>
         </div>
     </div>
+
+    {/* ДОДАТКОВА ПАНЕЛЬ: ІМПОРТ ТА ШАБЛОНИ */}
+    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(56, 189, 248, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            <input type="file" accept=".xlsx, .xls" id="excel-upload" style={{ display: 'none' }} onChange={handleImportExcel} />
+            <label htmlFor="excel-upload">
+                <Button variant="outlined" component="span" style={{ color: '#22c55e', borderColor: '#22c55e', fontWeight: 800, borderRadius: '10px' }}>
+                    <FileText size={16} style={{ marginRight: '8px' }} /> ІМПОРТ ПЛАНУ (.XLSX)
+                </Button>
+            </label>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>* Завантажте структуру етапів для швидкого старту</span>
+        </div>
+        
+        <div style={{ color: '#38bdf8', fontSize: '12px', fontWeight: 700 }}>
+             Бригада: {assignedWorkerIdsInCurrentPlan.size} осіб задіяно
+        </div>
+    </div>
+</div>
+
+{/* ВСТАВЛЯТИ ПІСЛЯ БЛОКУ ПАРАМЕТРІВ МОДЕЛІ */}
+<div style={{ marginTop: '20px', padding: '20px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '20px', border: '1px dashed #22c55e', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <FileText color="#22c55e" size={24} />
+    <div>
+      <div style={{ fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>ШВИДКИЙ ІМПОРТ СТРУКТУРИ</div>
+      <div style={{ fontSize: '11px', color: '#94a3b8' }}>Завантажте файл .xlsx з колонками: Етап, Назва, Об'єм</div>
+    </div>
+  </div>
+  
+  <input
+    type="file"
+    accept=".xlsx, .xls"
+    id="excel-upload"
+    style={{ display: 'none' }}
+    // ОСЬ ТУТ МИ ВИКОРИСТОВУЄМО ДРУГУ ФУНКЦІЮ:
+    onChange={handleImportExcel} 
+  />
+  <label htmlFor="excel-upload">
+    <Button 
+      variant="contained" 
+      component="span" 
+      style={{ background: '#22c55e', color: '#0f172a', fontWeight: 900, borderRadius: '12px' }}
+    >
+      ОБРАТИ ФАЙЛ
+    </Button>
+  </label>
+</div>
 
     {/* ВІДОБРАЖЕННЯ ЕТАПІВ ТА ТАБЛИЦЬ ЗАВДАНЬ */}
 {currentCalendarPlan && (
@@ -1602,7 +1842,7 @@ const handleApplyFullMathModel = () => {
       else if (name.includes('ФУНДАМЕНТ')) { minTasks = 4; hint = "1.Опалубка, 2.Армування, 3.Бетон (Δ form), 4.Демонтаж"; }
       else if (name.includes('МОНТАЖ')) { minTasks = 3; hint = "1.Стіни (m), 2.Армопояс, 3.Дах (Δ belt)"; }
       else if (name.includes('ОЗДОБЛЕННЯ')) { minTasks = 4; hint = "1.Електрика, 2.Штукатурка (Δ plast), 3.Стяжка (Δ screed), 4.Фініш"; }
-
+else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг та передача ключів замовнику"; }
       const isInvalid = stage.tasks.length < minTasks;
 
       return (
@@ -1667,18 +1907,23 @@ const handleApplyFullMathModel = () => {
                     <td>
                       {/* ВИКОРИСТАННЯ getRequiredSpecialization ДЛЯ ФІЛЬТРАЦІЇ */}
                       <select 
-                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }}
-                        value="" 
-                        onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
-                      >
-                        <option value="" disabled>+ Додати в бригаду</option>
-                        {workers
-                          .filter(w => w.isAvailable && getRequiredSpecialization(stage.name).includes(w.specialization))
-                          .map(w => (
-                            <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
-                          ))
-                        }
-                      </select>
+  style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }}
+  value="" 
+  onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
+>
+  <option value="" disabled>+ Додати в бригаду</option>
+  {workers
+    .filter(w => 
+      w.isAvailable && 
+      getRequiredSpecialization(stage.name).includes(w.specialization) &&
+      // ОСЬ ТУТ МИ ВИКОРИСТОВУЄМО ПЕРШУ ЗМІННУ:
+      !assignedWorkerIdsInCurrentPlan.has(w._id) 
+    )
+    .map(w => (
+      <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
+    ))
+  }
+</select>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
                         {task.assignedWorkers?.map(wId => {
                           const w = workers.find(wo => wo._id === (typeof wId === 'object' ? wId._id : wId));
@@ -1708,20 +1953,14 @@ const handleApplyFullMathModel = () => {
       );
     })}
 
-    {/* КНОПКА РОЗРАХУНКУ */}
-    <ActionButton 
-      onClick={handleApplyFullMathModel} 
-      style={{ width: '100%', height: '60px', background: 'linear-gradient(90deg, #38bdf8, #2dd4bf)', color: '#0f172a', fontSize: '18px', fontWeight: '900' }}
-    >
-      <Zap size={24} /> РОЗРАХУВАТИ ГРАФІК (МАТ. МОДЕЛЬ)
-    </ActionButton>
+    
 
     {/* ВИКОРИСТАННЯ handleSaveCalendarPlan */}
     <ActionButton 
       onClick={handleSaveCalendarPlan} 
       style={{ width: '100%', height: '60px', background: '#22c55e', color: 'white' }}
     >
-      <ClipboardCheck size={20} /> ЗАТВЕРДИТИ ТА ЗБЕРЕГТИ В БД
+      <ClipboardCheck size={20} /> ЗАТВЕРДИТИ КАЛЕНДАРНИЙ ПЛАН ТА ЗБЕРЕГТИ
     </ActionButton>
   </div>
 )}

@@ -4,49 +4,70 @@ const ConstructionReport = require('../models/ConstructionReport');
 const CalendarPlan = require('../models/CalendarPlan');
 const { protect } = require('../middleware/authMiddleware');
 
+// @desc    Отримати всі звіти для архіву
+// @route   GET /api/reports
+router.get('/', protect, async (req, res) => {
+  try {
+    // .populate('objectId', 'address') дозволяє замість просто ID побачити адресу об'єкта
+    const reports = await ConstructionReport.find()
+      .populate('objectId', 'address')
+      .sort({ createdAt: -1 }); // Нові звіти будуть зверху
+    res.json(reports);
+  } catch (error) {
+    console.error('Fetch Reports Error:', error);
+    res.status(500).json({ message: 'Помилка при отриманні списку звітів' });
+  }
+});
+
 // @desc    Створити технічний звіт та оновити статус плану
 // @route   POST /api/reports
 router.post('/', protect, async (req, res) => {
   try {
     const { objectId, planId, stages, generatedBy } = req.body;
 
-    // 1. Валідація: перевіряємо, чи всі необхідні дані прийшли з фронтенду
     if (!objectId || !planId || !stages) {
-      return res.status(400).json({ 
-        message: 'Відсутні обов’язкові дані (ID об’єкта, ID плану або контент етапів)' 
-      });
+      return res.status(400).json({ message: 'Відсутні обов’язкові дані' });
     }
 
-    // 2. Перевіряємо, чи існує такий план у базі
     const planExists = await CalendarPlan.findById(planId);
     if (!planExists) {
-      return res.status(404).json({ message: 'Календарний план не знайдено в базі' });
+      return res.status(404).json({ message: 'Календарний план не знайдено' });
     }
 
-    // 3. Створюємо новий звіт
     const newReport = new ConstructionReport({
-      reportNumber: `REP-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Надійніший унікальний номер
+      reportNumber: `REP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       objectId,
       planId,
-      generatedBy: generatedBy || 'Система',
+      generatedBy: generatedBy || req.user.lastName || 'Координатор',
       content: { stages }
     });
 
     const savedReport = await newReport.save();
-
-    // 4. Оновлюємо статус календарного плану
-    // Використовуємо { new: true }, щоб отримати вже оновлений об'єкт, якщо захочеш його повернути
+    
+    // Оновлюємо статус плану на "Reported"
     await CalendarPlan.findByIdAndUpdate(planId, { status: 'Reported' });
 
-    console.log(`✅ Звіт ${savedReport.reportNumber} створено для об'єкта ${objectId}`);
-    
     res.status(201).json(savedReport);
   } catch (error) {
     console.error('Report Creation Error:', error);
-    res.status(500).json({ 
-      message: 'Внутрішня помилка сервера при створенні звіту',
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Помилка сервера при створенні звіту' });
+  }
+});
+
+// @desc    Видалити звіт з архіву
+// @route   DELETE /api/reports/:id
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const report = await ConstructionReport.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ message: 'Звіт не знайдено' });
+    }
+
+    await report.deleteOne();
+    res.json({ message: 'Звіт видалено з архіву' });
+  } catch (error) {
+    console.error('Delete Report Error:', error);
+    res.status(500).json({ message: 'Помилка при видаленні звіту' });
   }
 });
 

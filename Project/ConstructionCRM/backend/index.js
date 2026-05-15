@@ -5,6 +5,7 @@ const path = require('path');
 const connectDB = require('./config/db.js');
 
 // --- Імпорт маршрутів ---
+const reportRoutes = require('./routes/reportRoutes');
 const userRoutes = require('./routes/userRoutes');
 const clientRoutes = require('./routes/clientRoutes');
 const buildingRoutes = require('./routes/buildingRoutes');
@@ -32,7 +33,7 @@ const calendarPlanRoutes = require('./routes/calendarPlanRoutes');
 const ganttRoutes = require('./routes/ganttRoutes');
 
 // НОВИЙ МАРШРУТ: Звіти з будівництва (ДОДАНО)
-const reportRoutes = require('./routes/reportRoutes');
+
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -55,7 +56,6 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/site-inspections', siteInspectionRoutes);
 app.use('/api/blueprints', blueprintRoutes); 
-
 // Матеріали та Техплани
 app.use('/api/materials', materialRoutes);
 app.use('/api/technical-projects', technicalProjectRoutes);

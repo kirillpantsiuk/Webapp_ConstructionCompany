@@ -473,6 +473,7 @@ const TechnicalDashboard = () => {
   // Стани для Календарного планування та Робітників
   const [workers, setWorkers] = useState([]); 
   const [calendarPlans, setCalendarPlans] = useState([]);
+  const [completedReports, setCompletedReports] = useState([]);
   const [selectedCalendarObject, setSelectedCalendarObject] = useState('');
   const [selectedReportObject, setSelectedReportObject] = useState('');
   const [currentCalendarPlan, setCurrentCalendarPlan] = useState(null);
@@ -514,7 +515,7 @@ const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 })
     try {
       setLoading(true);
       setLoadingDrawings(true);
-      const [resObjs, resInsp, resBlue, resMats, resProjects, resAddMats, resTools, resSupplies, resWorkers, resCalPlans] = await Promise.all([
+      const [resObjs, resInsp, resBlue, resMats, resProjects, resAddMats, resTools, resSupplies, resWorkers, resCalPlans,resReports] = await Promise.all([
         axios.get('http://localhost:5000/api/building-objects', config),
         axios.get('http://localhost:5000/api/site-inspections', config),
         axios.get('http://localhost:5000/api/blueprints', config).catch(() => ({ data: [] })),
@@ -524,7 +525,9 @@ const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 })
         axios.get('http://localhost:5000/api/tools', config).catch(() => ({ data: [] })),
         axios.get('http://localhost:5000/api/project-supplies', config).catch(() => ({ data: [] })),
         axios.get('http://localhost:5000/api/workers', config).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/calendar-plans', config).catch(() => ({ data: [] }))
+        axios.get('http://localhost:5000/api/calendar-plans', config).catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/reports', config).catch(() => ({ data: [] }))
+     
       ]);
       setBuildingObjects(Array.isArray(resObjs.data) ? resObjs.data : []);
       setInspections(Array.isArray(resInsp.data) ? resInsp.data : []);
@@ -536,11 +539,14 @@ const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 })
       setConfirmedSupplies(Array.isArray(resSupplies.data) ? resSupplies.data : []);
       setWorkers(Array.isArray(resWorkers.data) ? resWorkers.data : []);
       setCalendarPlans(Array.isArray(resCalPlans.data) ? resCalPlans.data : []);
+      setCompletedReports(Array.isArray(resReports.data) ? resReports.data : []);
     } catch (err) { 
       console.error(err);
       setNotify({ open: true, message: 'Помилка мережі: Бекенд недоступний', severity: 'error' });
     } finally { setLoading(false); setLoadingDrawings(false); }
+  
   }, [userInfo]);
+
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1170,7 +1176,233 @@ const handleApplyFullMathModel = () => {
     setNotify({ open: true, message: error.message, severity: 'error' });
   }
 };
+// --- ФУНКЦІЇ ДЛЯ РОБОТИ З АРХІВОМ ЗВІТІВ ---
 
+const handleDeleteReport = async (id) => {
+  if (!window.confirm('Видалити цей звіт з архіву?')) return;
+  
+  // Отримуємо актуальний токен
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } };
+  
+  try {
+    await axios.delete(`http://localhost:5000/api/reports/${id}`, config);
+    // Оновлюємо локальний список, щоб звіт зник з таблиці
+    setCompletedReports(prev => prev.filter(r => r._id !== id));
+    setNotify({ open: true, message: 'Звіт видалено з архіву', severity: 'info' });
+  } catch (err) {
+    console.error('Помилка видалення звіту:', err);
+    setNotify({ open: true, message: 'Помилка видалення звіту', severity: 'error' });
+  }
+};
+
+const handlePrintArchivedReport = (report) => {
+  const win = window.open('', '_blank');
+  if (!win) return;
+
+  const objAddress = report.objectId?.address || 'Об’єкт не вказано';
+  const reportDate = new Date(report.createdAt).toLocaleDateString('uk-UA');
+  const reportId = report.reportNumber || `B43C24`; // або report._id.slice(-6).toUpperCase()
+
+  win.document.write(`
+    <html>
+      <head>
+        <title>ЗВІТ № ${reportId}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+          
+          body { 
+            font-family: 'Inter', sans-serif; 
+            padding: 40px; 
+            color: #1a202c; 
+            background: #fff;
+          }
+
+          /* Шапка */
+          .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 5px;
+          }
+          .logo-box h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -1px;
+          }
+          .logo-box p {
+            margin: 2px 0;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #4a5568;
+          }
+          .report-info {
+            text-align: right;
+            font-size: 11px;
+            color: #718096;
+            font-weight: 700;
+          }
+          .report-info b { color: #1a202c; font-size: 13px; }
+
+          .blue-line {
+            height: 3px;
+            background-color: #38bdf8;
+            width: 100%;
+            margin-bottom: 40px;
+          }
+
+          /* Заголовок та Об'єкт */
+          .main-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+          }
+          .object-pill {
+            display: block;
+            margin: 0 auto 50px auto;
+            width: fit-content;
+            padding: 8px 30px;
+            border: 1px solid #e2e8f0;
+            border-radius: 50px;
+            font-size: 13px;
+            color: #718096;
+            font-weight: 600;
+          }
+          .object-pill b { color: #4a5568; margin-left: 5px; }
+
+          /* Етапи та Таблиці */
+          .stage-block { margin-bottom: 35px; page-break-inside: avoid; }
+          .stage-name {
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            padding-left: 5px;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid #1a202c;
+          }
+          th {
+            background-color: #fff;
+            border: 1.5px solid #1a202c;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 800;
+            color: #0ea5e9;
+            text-transform: uppercase;
+          }
+          td {
+            border: 1.5px solid #1a202c;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #718096;
+          }
+          .col-vol { text-align: center; color: #0ea5e9; font-weight: 900; font-size: 14px; width: 80px; }
+          .col-date { text-align: center; width: 120px; color: #a0aec0; }
+          .col-date-end { text-align: center; width: 120px; color: #166534; font-weight: 800; }
+
+          /* Футер / Підпис */
+          .footer-signature {
+            margin-top: 80px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+          }
+          .stamp {
+            border: 3px solid #166534;
+            color: #166534;
+            padding: 10px 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+            border-radius: 8px;
+            transform: rotate(-5deg);
+            font-size: 14px;
+          }
+          .sign-line {
+            border-top: 1.5px solid #1a202c;
+            width: 250px;
+            text-align: center;
+            padding-top: 5px;
+            font-size: 11px;
+            font-weight: 700;
+          }
+
+          @media print {
+            body { padding: 0; }
+            @page { size: A4; margin: 15mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header-container">
+          <div class="logo-box">
+            <h1>BUILD CRM</h1>
+            <p>Система технічного координатування будівництва</p>
+          </div>
+          <div class="report-info">
+            ЗВІТ № <b>${reportId}</b><br/>
+            Дата: ${reportDate}
+          </div>
+        </div>
+        <div class="blue-line"></div>
+
+        <div class="main-title">Звіт про виконання будівельних робіт</div>
+        <div class="object-pill">ОБ'ЄКТ: <b>${objAddress}</b></div>
+
+        ${report.content.stages.map(stage => `
+          <div class="stage-block">
+            <div class="stage-name">${stage.name}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Технологічна операція</th>
+                  <th style="text-align: center">Об'єм</th>
+                  <th style="text-align: center">Початок</th>
+                  <th style="text-align: center">Кінець</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${stage.tasks.map(task => `
+                  <tr>
+                    <td>${task.title}</td>
+                    <td class="col-vol">${task.volume || '0'}</td>
+                    <td class="col-date">${task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'}</td>
+                    <td class="col-date-end">${task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `).join('')}
+
+        <div class="footer-signature">
+          <div class="stamp">✅ ПЕРЕВІРЕНО ТА ЗАВЕРШЕНО</div>
+          <div class="sign-line">
+            Технічний координатор: ${report.generatedBy || 'К. Панцюк'}<br/>
+            (підпис, дата)
+          </div>
+        </div>
+
+        <script>
+          window.onload = () => {
+            window.print();
+            window.close();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  win.document.close();
+};
 const handleCompleteProject = async () => {
   if (!selectedReportObject) return;
 
@@ -1862,6 +2094,13 @@ const handleImportExcel = (e) => {
                   <Button variant={calendarViewMode === 'list' ? "contained" : "outlined"} style={{background: calendarViewMode === 'list' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'list' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('list'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><List size={16} style={{marginRight: '8px'}}/> Список графіків</Button>
                   <Button variant={calendarViewMode === 'gantt' ? "contained" : "outlined"} style={{background: calendarViewMode === 'gantt' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'gantt' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('gantt'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><BarChart3 size={16} style={{marginRight: '8px'}}/> Діаграма Ганта</Button>
                 <Button 
+    variant={calendarViewMode === 'history' ? "contained" : "outlined"} 
+    style={{ background: calendarViewMode === 'history' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'history' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} 
+    onClick={() => setCalendarViewMode('history')}
+  >
+    <FolderOpen size={16} style={{ marginRight: '8px' }} /> Архів звітів
+  </Button>
+                <Button 
   variant={calendarViewMode === 'report' ? "contained" : "outlined"} 
   style={{ background: calendarViewMode === 'report' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'report' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} 
   onClick={() => { setCalendarViewMode('report'); setSelectedReportObject(''); }}
@@ -2158,6 +2397,8 @@ const handleImportExcel = (e) => {
     </StyledTable></TableContainer>
   </>
 )}
+{/* Шукай місце після закриття блоку {calendarViewMode === 'report' && (...)} */}
+
 
                 {/* Вкладка Ганта */}
                 {calendarViewMode === 'gantt' && (
@@ -2334,6 +2575,52 @@ const handleImportExcel = (e) => {
         <p style={{ color: '#64748b', fontSize: '15px' }}>Будь ласка, оберіть об'єкт для генерації технічного звіту</p>
       </div>
     )}
+  </div>
+)}
+{/* РЕЖИМ: АРХІВ (ІСТОРІЯ ЗВІТІВ) */}
+{calendarViewMode === 'history' && (
+  <div style={{ animation: 'fadeIn 0.5s ease' }}>
+    <div className="no-print">
+      <SectionTitle><FolderOpen size={18}/> Архів завершених технічних звітів</SectionTitle>
+      
+      <TableContainer>
+        <StyledTable>
+          <thead>
+            <tr>
+              <th>№ Звіту</th>
+              <th>Об'єкт будівництва</th>
+              <th>Дата збереження</th>
+              <th>Відповідальний</th>
+              <th style={{ textAlign: 'right' }}>Дії</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completedReports.length > 0 ? completedReports.map(report => (
+              <tr key={report._id}>
+                <td><code style={{ color: '#38bdf8', fontWeight: 800 }}>{report.reportNumber}</code></td>
+                <td><b>{report.objectId?.address || 'Об’єкт видалено'}</b></td>
+                <td>{new Date(report.createdAt).toLocaleString('uk-UA')}</td>
+                <td>{report.generatedBy}</td>
+                <td style={{ textAlign: 'right' }}>
+                  <IconButton onClick={() => handlePrintArchivedReport(report)} style={{ color: '#38bdf8' }} title="Переглянути / Друк">
+                    <Printer size={18} />
+                  </IconButton>
+                  <IconButton onClick={() => handleDeleteReport(report._id)} style={{ color: '#ef4444' }} title="Видалити">
+                    <Trash2 size={18} />
+                  </IconButton>
+                </td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                  Архів порожній. Збережіть свій перший звіт у вкладці "Звіт з будівництва".
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </StyledTable>
+      </TableContainer>
+    </div>
   </div>
 )}
             {/* ВКЛАДКА: МАТЕРІАЛИ ТА ІНСТРУМЕНТИ */}

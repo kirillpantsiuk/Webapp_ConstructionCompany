@@ -448,12 +448,23 @@ const MathModelEngine = {
 const TechnicalDashboard = () => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('inspections');
+ // Оголошуємо змінні ОДИН РАЗ
+const [activeTab, setActiveTab] = useState(() => {
+  const saved = localStorage.getItem('activeTab');
+  return (saved && saved !== 'null' && saved !== 'undefined') ? saved : 'inspections';
+});
+
+const [calendarViewMode, setCalendarViewMode] = useState(() => {
+  const saved = localStorage.getItem('calendarViewMode');
+  return (saved && saved !== 'null' && saved !== 'undefined') ? saved : 'form';
+});
   const [searchTerm, setSearchTerm] = useState('');
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [openInspectionForm, setOpenInspectionForm] = useState(false);
   const [notify, setNotify] = useState({ open: false, message: '', severity: 'info' });
-  
+  // Шукай приблизно 240-й рядок
+
+
   // Базові стани
   const [buildingObjects, setBuildingObjects] = useState([]);
   const [inspections, setInspections] = useState([]);
@@ -477,7 +488,7 @@ const TechnicalDashboard = () => {
   const [selectedCalendarObject, setSelectedCalendarObject] = useState('');
   const [selectedReportObject, setSelectedReportObject] = useState('');
   const [currentCalendarPlan, setCurrentCalendarPlan] = useState(null);
-  const [calendarViewMode, setCalendarViewMode] = useState('form'); 
+   
 const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 });
   const userInfo = useMemo(() => {
     const data = localStorage.getItem('userInfo');
@@ -554,7 +565,14 @@ const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 })
     localStorage.removeItem('userInfo'); 
     navigate('/login'); 
   };
+// Ці ефекти мають бути в одному екземплярі
+useEffect(() => {
+  localStorage.setItem('activeTab', activeTab);
+}, [activeTab]);
 
+useEffect(() => {
+  localStorage.setItem('calendarViewMode', calendarViewMode);
+}, [calendarViewMode]);
 // --- ФУНКЦІЯ ГЕНЕРАЦІЇ HTML ГАНТА (ДЛЯ ДРУКУ З КОЛЬОРАМИ ТА ІЄРАРХІЄЮ) ---
   const generateGanttHtmlString = (plan) => {
     let minDate = new Date(8640000000000000);
@@ -1130,15 +1148,13 @@ const handleApplyFullMathModel = () => {
 }}
   //тут кінець
 
- const handleSaveReport = async () => {
+const handleSaveReport = async () => {
   if (!selectedReportObject) return;
 
-  // 1. Дістаємо userInfo та парсимо його
   const userInfoString = localStorage.getItem('userInfo');
   const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
-  const token = userInfo?.token; // Витягуємо токен з об'єкта
+  const token = userInfo?.token;
 
-  // Перевірка
   if (!token) {
     setNotify({ open: true, message: 'Сесія завершена. Перезайдіть у систему', severity: 'error' });
     return;
@@ -1155,7 +1171,7 @@ const handleApplyFullMathModel = () => {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // Тепер тут буде правильний токен
+        'Authorization': `Bearer ${token}` 
       },
       body: JSON.stringify({
         objectId: selectedReportObject,
@@ -1166,13 +1182,29 @@ const handleApplyFullMathModel = () => {
     });
 
     if (response.ok) {
-      setNotify({ open: true, message: 'Звіт збережено!', severity: 'success' });
+      // 1. Отримуємо дані збереженого звіту від сервера
+      const savedReport = await response.json();
+
+      // 2. ОНОВЛЮЄМО СТАН АРХІВУ (додаємо новий звіт у початок списку)
+      // Ми використовуємо функцію-колбек (prev), щоб не втратити існуючі звіти
+      setCompletedReports(prev => [savedReport, ...prev]);
+
+      setNotify({ 
+        open: true, 
+        message: 'Звіт успішно збережено та додано до архіву!', 
+        severity: 'success' 
+      });
+      
+      // (Опціонально) можна автоматично перемкнути вкладку на архів, щоб користувач його побачив
+      // setCalendarViewMode('history');
+
     } else {
       const errorText = await response.text();
-      console.error('Помилка:', errorText);
+      console.error('Помилка сервера:', errorText);
       throw new Error(`Помилка сервера: ${response.status}`);
     }
   } catch (error) {
+    console.error('handleSaveReport Error:', error);
     setNotify({ open: true, message: error.message, severity: 'error' });
   }
 };

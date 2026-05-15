@@ -121,7 +121,16 @@ const CancelLink = styled.div`
 const ManagerDashboard = () => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Використовуємо унікальні ключі (managerActiveTab), щоб не плутати з тех. координатором
+const [activeTab, setActiveTab] = useState(() => {
+  const saved = localStorage.getItem('managerActiveTab');
+  return (saved && saved !== 'null') ? saved : 'dashboard';
+});
+
+const [selectedReportId, setSelectedReportId] = useState(() => {
+  const saved = localStorage.getItem('managerSelectedReportId');
+  return (saved && saved !== 'null') ? saved : '';
+});
   const [clients, setClients] = useState([]);
   const [buildingObjects, setBuildingObjects] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -135,6 +144,7 @@ const ManagerDashboard = () => {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [notify, setNotify] = useState({ open: false, message: '', severity: 'success' });
   const [suggestParams, setSuggestParams] = useState({ rooms: '', bathrooms: '' });
+const [completedReports, setCompletedReports] = useState([]);
 
   const [userInfo] = useState(() => {
     const data = localStorage.getItem('userInfo');
@@ -155,40 +165,57 @@ const ManagerDashboard = () => {
   });
 
   // --- API ---
-  const fetchAllData = useCallback(async () => {
-    if (!userInfo?.token) return;
-    const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-    try {
-      const responses = await Promise.allSettled([
-        axios.get('http://localhost:5000/api/clients', config),
-        axios.get('http://localhost:5000/api/building-objects', config),
-        axios.get('http://localhost:5000/api/templates', config),
-        axios.get('http://localhost:5000/api/payments', config)
-      ]);
+ const fetchAllData = useCallback(async () => {
+  if (!userInfo?.token) return;
+  const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+  
+  try {
+    // Додаємо 5-й запит у масив — для звітів
+    const responses = await Promise.allSettled([
+      axios.get('http://localhost:5000/api/clients', config),
+      axios.get('http://localhost:5000/api/building-objects', config),
+      axios.get('http://localhost:5000/api/templates', config),
+      axios.get('http://localhost:5000/api/payments', config),
+      axios.get('http://localhost:5000/api/reports', config) // <--- НОВИЙ ЗАПИТ
+    ]);
 
-      if (responses[0].status === 'fulfilled') {
-        setClients(responses[0].value.data.map(c => ({
-          ...c,
-          series: c.passport?.series || '',
-          number: c.passport?.number || '',
-          issueDate: c.passport?.issueDate ? c.passport.issueDate.split('T')[0] : '',
-          issuedBy: c.passport?.issuedBy || '',
-          iban: c.bank?.iban || '',
-          bankName: c.bank?.bankName || '',
-          accountOwner: c.bank?.accountOwner || ''
-        })));
-      }
-      if (responses[1].status === 'fulfilled') setBuildingObjects(responses[1].value.data);
-      if (responses[2].status === 'fulfilled') setTemplates(responses[2].value.data);
-      if (responses[3].status === 'fulfilled') setPayments(responses[3].value.data);
-      else setPayments([]);
-
-    } catch (err) {
-      console.error("Помилка завантаження даних:", err);
-      setNotify({ open: true, message: 'Помилка синхронізації бази даних', severity: 'error' });
+    // 0: Клієнти
+    if (responses[0].status === 'fulfilled') {
+      setClients(responses[0].value.data.map(c => ({
+        ...c,
+        series: c.passport?.series || '',
+        number: c.passport?.number || '',
+        issueDate: c.passport?.issueDate ? c.passport.issueDate.split('T')[0] : '',
+        issuedBy: c.passport?.issuedBy || '',
+        iban: c.bank?.iban || '',
+        bankName: c.bank?.bankName || '',
+        accountOwner: c.bank?.accountOwner || ''
+      })));
     }
-  }, [userInfo]);
 
+    // 1: Об'єкти
+    if (responses[1].status === 'fulfilled') setBuildingObjects(responses[1].value.data);
+
+    // 2: Шаблони
+    if (responses[2].status === 'fulfilled') setTemplates(responses[2].value.data);
+
+    // 3: Платежі
+    if (responses[3].status === 'fulfilled') setPayments(responses[3].value.data);
+    else setPayments([]);
+
+    // 4: Звіти (Ось тут ми заповнюємо completedReports)
+    if (responses[4].status === 'fulfilled') {
+      setCompletedReports(responses[4].value.data);
+    } else {
+      setCompletedReports([]);
+    }
+
+  } catch (err) {
+    console.error("Помилка завантаження даних:", err);
+    setNotify({ open: true, message: 'Помилка синхронізації бази даних', severity: 'error' });
+  }
+  // Додаємо сеттери в залежності для коректної роботи useCallback
+}, [userInfo, setClients, setBuildingObjects, setTemplates, setPayments, setCompletedReports]);
   useEffect(() => {
     if (!userInfo || userInfo.role !== 'Manager') {
       navigate('/login');
@@ -197,6 +224,15 @@ const ManagerDashboard = () => {
       init();
     }
   }, [userInfo, navigate, fetchAllData]);
+// Зберігаємо поточну вкладку
+useEffect(() => {
+  localStorage.setItem('managerActiveTab', activeTab);
+}, [activeTab]);
+
+// Зберігаємо ID обраного звіту (для вкладки аналітики)
+useEffect(() => {
+  localStorage.setItem('managerSelectedReportId', selectedReportId);
+}, [selectedReportId]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -377,7 +413,81 @@ const ManagerDashboard = () => {
       return matchRooms && matchBath;
     });
   }, [templates, suggestParams]);
+// Оновлення статусу конкретного етапу (наприклад, з "В роботі" на "Завершено ✅")
+// Функція для оновлення статусу етапу (технічного або фінансового)
+const handleUpdateStageStatus = async (reportId, stageIdx, field, value) => {
+  const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+  try {
+    const report = completedReports.find(r => r._id === reportId);
+    if (!report) return;
 
+    const updatedStages = JSON.parse(JSON.stringify(report.content.stages));
+    updatedStages[stageIdx][field] = value;
+
+    const payload = {
+      content: { stages: updatedStages },
+      createPayment: field === 'paymentStatus' && value === 'Сплачено',
+      stageIdx: stageIdx 
+    };
+
+    await axios.put(`http://localhost:5000/api/reports/${reportId}`, payload, config);
+
+    setNotify({ open: true, message: 'Дані оновлено успішно', severity: 'success' });
+    fetchAllData(); 
+  } catch (err) {
+    console.error("Update Error:", err); // ВИКОРИСТОВУЄМО err, щоб ESLint не сварився
+    setNotify({ open: true, message: 'Помилка оновлення', severity: 'error' });
+  }
+};
+
+
+
+// ВІДНОВЛЮЄМО ФУНКЦІЮ ДРУКУ (яка видалилася)
+const handlePrintManagerReport = (report) => {
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>ЗВІТ - ${report.reportNumber}</title>
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #0f172a; }
+      .header { border-bottom: 3px solid #38bdf8; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+      .stage { border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; page-break-inside: avoid; }
+      .status-tag { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 800; border: 1px solid #cbd5e1; text-transform: uppercase; margin-left: 10px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+      th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 13px; }
+      .footer { margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end; }
+      .stamp { border: 4px double #0ea5e9; color: #0ea5e9; padding: 10px 20px; font-weight: 900; transform: rotate(-2deg); }
+    </style></head>
+    <body>
+      <div class="header">
+        <div><h1>ТЕХНІЧНИЙ ТА ФІНАНСОВИЙ ЗВІТ</h1><p>Об'єкт: <b>${report.objectId?.address}</b></p></div>
+        <div style="text-align:right">№ ${report.reportNumber}<br/>Дата: ${new Date().toLocaleDateString()}</div>
+      </div>
+      ${report.content.stages.map(stage => `
+        <div class="stage">
+          <div style="display:flex; justify-content:space-between; align-items:center">
+            <h3 style="margin:0">${stage.name}</h3>
+            <div>
+               <span class="status-tag">${stage.managerStatus || 'В РОБОТІ'}</span>
+               <span class="status-tag" style="color: ${stage.paymentStatus === 'Сплачено' ? '#10b981' : '#f87171'}">${stage.paymentStatus || 'ОЧІКУЄ'}</span>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Операція</th><th>Об'єм</th><th>Термін</th></tr></thead>
+            <tbody>
+              ${stage.tasks.map(t => `<tr><td>${t.title}</td><td>${t.volume}</td><td>${new Date(t.startDate).toLocaleDateString()}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      `).join('')}
+      <div class="footer">
+        <div class="stamp">ЗАТВЕРДЖЕНО</div>
+        <div style="border-top:1px solid #000; width:200px; text-align:center">Менеджер: ${userInfo.login}</div>
+      </div>
+      <script>window.onload=function(){window.print();window.close();}</script>
+    </body></html>
+  `);
+  win.document.close();
+};
   // --- СТИЛЬНІ РОЗДРУКІВКИ ---
   const handlePrintClient = (c) => {
     const win = window.open('', '_blank');
@@ -512,7 +622,24 @@ const ManagerDashboard = () => {
       });
     }
   };
+const handleFinalizeAudit = async (report) => {
+  if (!window.confirm("Зберегти всі зміни? Система оновить статуси етапів та зафіксує оплату в базі даних.")) return;
+  
+  const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+  try {
+    // Відправляємо запит на оновлення всього звіту з прапорцем синхронізації фінансів
+    await axios.put(`http://localhost:5000/api/reports/${report._id}`, {
+      content: report.content,
+      syncPayments: true // Сигнал для бекенда створити записи в моделі Payment
+    }, config);
 
+    setNotify({ open: true, message: 'Дані успішно синхронізовано з базою', severity: 'success' });
+    fetchAllData();
+  } catch (err) {
+    console.error(err);
+    setNotify({ open: true, message: 'Помилка при збереженні', severity: 'error' });
+  }
+};
   return (
     <DashboardWrapper>
       <GlobalStyle />
@@ -524,7 +651,7 @@ const ManagerDashboard = () => {
         <SidebarItem $active={activeTab === 'dashboard'} onClick={() => handleTabChange('dashboard')}><LayoutDashboard size={20}/> Огляд</SidebarItem>
         <SidebarItem $active={activeTab === 'clients'} onClick={() => handleTabChange('clients')}><Database size={20}/> База клієнтів</SidebarItem>
         <SidebarItem $active={activeTab === 'objects'} onClick={() => handleTabChange('objects')}><Home size={20}/> Об'єкти будівництва</SidebarItem>
-        <SidebarItem $active={activeTab === 'payments'} onClick={() => handleTabChange('payments')}><Banknote size={20}/> Стан сплати</SidebarItem>
+      
         <SidebarItem $active={activeTab === 'templates'} onClick={() => handleTabChange('templates')}><FileText size={20}/> Опорні плани</SidebarItem>
         <SidebarItem $active={activeTab === 'reports'} onClick={() => handleTabChange('reports')}><BarChart3 size={20}/> Звіт по етапам будівництва</SidebarItem>
         <SidebarItem onClick={() => setLogoutDialogOpen(true)} style={{marginTop:'auto', color:'#ef4444', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px'}}><LogOut size={20}/> Вийти з системи</SidebarItem>
@@ -551,17 +678,167 @@ const ManagerDashboard = () => {
 
         {activeTab === 'dashboard' && <div style={{textAlign:'center', marginTop:'120px'}}><Home size={100} color="#38bdf8" style={{opacity: 0.2, marginBottom: '20px'}} /><h2>BUILD CRM System</h2><p style={{color: '#94a3b8'}}>Система управління базою клієнтів та фінансами будівництва.</p></div>}
 
-        {activeTab === 'reports' && (
-          <div style={{animation: 'fadeIn 0.3s'}}>
-            <SectionTitle><BarChart3 size={18}/> Звіт по етапам будівництва</SectionTitle>
-            <div style={{textAlign: 'center', color: '#94a3b8', marginTop: '80px'}}>
-              <Info size={50} style={{marginBottom: '15px', color: '#38bdf8'}}/><br/>
-              <h3 style={{margin: '0 0 10px 0', color: 'white'}}>Розділ знаходиться в розробці</h3>
-              <p style={{margin: 0}}>Тут буде відображатися детальна аналітика та звіти по етапам будівництва об'єктів.</p>
+   {/* РЕЖИМ: МОНІТОРИНГ ЗВІТІВ */}
+{activeTab === 'reports' && (
+  <div style={{ animation: 'fadeIn 0.4s ease' }}>
+    <SectionTitle><BarChart3 size={18}/> Затвердження етапів та фінансова звітність</SectionTitle>
+
+    {/* СЕЛЕКТОР ОБ'ЄКТІВ */}
+    <div style={{ 
+      background: 'rgba(30, 41, 59, 0.4)', 
+      padding: '20px', 
+      borderRadius: '20px', 
+      border: '1px solid rgba(56, 189, 248, 0.2)', 
+      marginBottom: '25px' 
+    }}>
+      <InputGroup>
+        <label>Виберіть об'єкт для аудиту та витягу звіту</label>
+        <select 
+          value={selectedReportId} 
+          onChange={(e) => setSelectedReportId(e.target.value)}
+        >
+          <option value="">Оберіть звіт із бази даних...</option>
+          {completedReports.map(r => (
+            <option key={r._id} value={r._id}>
+              {r.reportNumber} — {r.objectId?.address || 'Об’єкт без адреси'}
+            </option>
+          ))}
+        </select>
+      </InputGroup>
+    </div>
+
+    {/* ДЕТАЛІ ОБРАНОГО ЗВІТУ */}
+    {selectedReportId ? (
+      completedReports.filter(r => r._id === selectedReportId).map(report => (
+        <div key={report._id}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+            <div>
+              <h2 style={{ margin: 0, color: '#38bdf8' }}>{report.objectId?.address}</h2>
+              <p style={{ color: '#94a3b8', margin: '5px 0' }}>Комплексний технічний та фінансовий аудит</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {/* ГОЛОВНА КНОПКА ЗБЕРЕЖЕННЯ */}
+              <ActionButton 
+                onClick={() => handleFinalizeAudit(report)}
+                style={{ 
+                  background: '#10b981', 
+                  color: 'white', 
+                  border: 'none', 
+                  boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)',
+                  padding: '12px 20px'
+                }}
+              >
+                <Database size={18} /> ЗБЕРЕГТИ ЗМІНИ В БД
+              </ActionButton>
+
+              <ActionButton onClick={() => handlePrintManagerReport(report)}>
+                <Printer size={18} /> ВИТЯГ
+              </ActionButton>
             </div>
           </div>
-        )}
 
+          {/* КАРТКИ ЕТАПІВ */}
+          {report.content.stages.map((stage, sIdx) => (
+            <div key={sIdx} style={{ 
+              background: 'rgba(15, 23, 42, 0.4)', 
+              borderRadius: '18px', 
+              padding: '25px', 
+              marginBottom: '20px', 
+              border: '1px solid rgba(255,255,255,0.05)' 
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h4 style={{ margin: 0, color: '#38bdf8', textTransform: 'uppercase', fontSize: '13px' }}>{stage.name}</h4>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  
+                  {/* ТЕХНІЧНИЙ СТАТУС */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 800 }}>ТЕХ. СТАН:</span>
+                    <select 
+                      style={{ 
+                        padding: '6px 10px', 
+                        background: '#0f172a', 
+                        border: '1px solid #334155', 
+                        borderRadius: '8px', 
+                        color: 'white', 
+                        fontSize: '11px' 
+                      }}
+                      value={stage.managerStatus || 'В роботі'}
+                      onChange={(e) => handleUpdateStageStatus(report._id, sIdx, 'managerStatus', e.target.value)}
+                    >
+                      <option value="В роботі">В роботі</option>
+                      <option value="Перевірено">Перевірено</option>
+                      <option value="Завершено">Завершено ✅</option>
+                    </select>
+                  </div>
+
+                  {/* ФІНАНСОВИЙ СТАТУС (ОПЛАТА) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: 800 }}>ОПЛАТА:</span>
+                    <select 
+                      style={{ 
+                        padding: '6px 10px', 
+                        background: stage.paymentStatus === 'Сплачено' ? 'rgba(16, 185, 129, 0.2)' : '#0f172a', 
+                        border: `1px solid ${stage.paymentStatus === 'Сплачено' ? '#10b981' : '#334155'}`, 
+                        borderRadius: '8px', 
+                        color: stage.paymentStatus === 'Сплачено' ? '#10b981' : '#f87171', 
+                        fontSize: '11px',
+                        fontWeight: 700
+                      }}
+                      value={stage.paymentStatus || 'Очікує'}
+                      onChange={(e) => handleUpdateStageStatus(report._id, sIdx, 'paymentStatus', e.target.value)}
+                    >
+                      <option value="Очікує">⏳ Очікує</option>
+                      <option value="Сплачено">💰 СПЛАЧЕНО</option>
+                      <option value="Борг">⚠️ БОРГ</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* ТАБЛИЦЯ РОБІТ ВСЕРЕДИНІ ЕТАПУ */}
+              <TableContainer>
+                <StyledTable>
+                  <thead>
+                    <tr>
+                      <th style={{ fontSize: '11px' }}>Технологічна операція</th>
+                      <th style={{ fontSize: '11px', textAlign: 'center' }}>Об'єм</th>
+                      <th style={{ fontSize: '11px', textAlign: 'center' }}>План виконання</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stage.tasks.map((task, tIdx) => (
+                      <tr key={tIdx}>
+                        <td style={{ color: '#e2e8f0' }}>{task.title}</td>
+                        <td style={{ color: '#38bdf8', fontWeight: 800, textAlign: 'center' }}>{task.volume}</td>
+                        <td style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
+                          {task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'} — {task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </StyledTable>
+              </TableContainer>
+            </div>
+          ))}
+        </div>
+      ))
+    ) : (
+      /* EMPTY STATE */
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '100px', 
+        border: '2px dashed rgba(255,255,255,0.05)', 
+        borderRadius: '24px',
+        background: 'rgba(30, 41, 59, 0.2)'
+      }}>
+        <ClipboardList size={60} style={{ color: '#1e293b', marginBottom: '20px' }} />
+        <p style={{ color: '#64748b', fontSize: '16px' }}>Будь ласка, оберіть об'єкт для аудиту технічних та фінансових етапів</p>
+      </div>
+    )}
+  </div>
+)}
         {activeTab === 'clients' && (
           <TableContainer><StyledTable><thead><tr><th>ПІБ Клієнта</th><th>Контакти</th><th>IBAN рахунок</th><th style={{textAlign:'right'}}>Дії</th></tr></thead><tbody>
             {filteredClients.map(c => (<tr key={c._id}><td><b>{c.surname} {c.firstName}</b></td><td>{c.phone}</td><td style={{color:'#38bdf8', fontFamily: 'monospace'}}>{c.iban}</td><td style={{textAlign:'right'}}>

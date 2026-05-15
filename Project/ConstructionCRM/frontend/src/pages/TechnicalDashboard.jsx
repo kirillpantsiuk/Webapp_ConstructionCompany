@@ -2471,9 +2471,9 @@ const handleImportExcel = (e) => {
               </div>
             )}
       {/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
+{/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
 {calendarViewMode === 'report' && (
   <div style={{ animation: 'fadeIn 0.5s ease' }}>
-    {/* КЕРУВАННЯ (no-print приховає це при друці) */}
     <div className="no-print">
       <SectionTitle><FileBarChart size={18}/> Керування звітністю та завершення об'єкта</SectionTitle>
 
@@ -2488,7 +2488,6 @@ const handleImportExcel = (e) => {
             </select>
           </InputGroup>
 
-          {/* КНОПКА: СФОРМУВАТИ PDF */}
           <ActionButton 
             style={{ height: '48px', background: '#38bdf8', color: '#0f172a', fontWeight: 800, borderRadius: '12px' }}
             onClick={() => window.print()} 
@@ -2497,7 +2496,6 @@ const handleImportExcel = (e) => {
             <Printer size={18} /> PDF
           </ActionButton>
 
-          {/* КНОПКА: ЗБЕРЕГТИ В БД */}
           <ActionButton 
             style={{ height: '48px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', fontWeight: 800, borderRadius: '12px' }}
             onClick={handleSaveReport}
@@ -2506,7 +2504,6 @@ const handleImportExcel = (e) => {
             <Save size={18} /> ЗБЕРЕГТИ
           </ActionButton>
 
-          {/* КНОПКА: ЗАВЕРШИТИ БУДІВНИЦТВО */}
           <ActionButton 
             style={{ height: '48px', background: '#10b981', color: '#fff', fontWeight: 800, borderRadius: '12px', border: 'none' }}
             onClick={handleCompleteProject}
@@ -2519,7 +2516,6 @@ const handleImportExcel = (e) => {
       </div>
     </div>
 
-    {/* ОСНОВНЕ ТІЛО ЗВІТУ (Альбомний формат) */}
     {selectedReportObject ? (
       <div id="printable-report" style={{ 
         background: 'rgba(15, 23, 42, 0.6)', 
@@ -2541,55 +2537,70 @@ const handleImportExcel = (e) => {
           </div>
         </div>
 
-        {/* ЗАГОЛОВОК ДОКУМЕНТА */}
         <div style={{ textAlign: 'center', marginBottom: '35px' }}>
-          <h2 style={{ color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '20px', margin: 0 }}>
-            Звіт про виконання будівельних робіт
-          </h2>
+          <h2 style={{ color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '20px', margin: 0 }}>Звіт про виконання будівельних робіт</h2>
           <div style={{ marginTop: '10px', display: 'inline-block', padding: '6px 20px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '50px' }}>
             <span style={{ color: '#94a3b8', fontSize: '11px', marginRight: '8px' }}>ОБ'ЄКТ:</span>
             <span style={{ color: '#f8fafc', fontWeight: 700, fontSize: '15px' }}>{buildingObjects.find(o => o._id === selectedReportObject)?.address}</span>
           </div>
         </div>
 
-        {/* ДАНІ ПО ЕТАПАХ */}
         {calendarPlans
           .filter(plan => (plan.objectId?._id || plan.objectId) === selectedReportObject)
           .map((plan, pIdx) => (
             <div key={pIdx}>
-              {plan.stages.map((stage, sIdx) => (
-                <div key={sIdx} className="report-stage-block" style={{ marginBottom: '30px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                     <div style={{ width: '4px', height: '18px', background: '#38bdf8' }}></div>
-                     <h4 style={{ color: '#38bdf8', margin: 0, textTransform: 'uppercase', fontSize: '13px', fontWeight: 800 }}>{stage.name}</h4>
-                  </div>
-                  
-                  <StyledTable style={{ width: '100%' }}>
-                    <thead>
-                      <tr>
-                        <th width="50%">Технологічна операція</th>
-                        <th width="10%">Об'єм</th>
-                        <th width="20%">Початок</th>
-                        <th width="20%">Кінець</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stage.tasks.map((task, tIdx) => (
-                        <tr key={tIdx}>
-                          <td style={{ color: '#f8fafc', fontWeight: 500 }}>{task.title}</td>
-                          <td style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 800 }}>{task.volume}</td>
-                          <td style={{ textAlign: 'center', fontSize: '12px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString('uk-UA') : '—'}</td>
-                          <td style={{ textAlign: 'center', color: '#4ade80', fontWeight: 700, fontSize: '12px' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString('uk-UA') : '—'}</td>
+              {plan.stages.map((stage, sIdx) => {
+                // ШУКАЄМО СТАТУС ВІД МЕНЕДЖЕРА В АРХІВІ
+                const savedReport = completedReports.find(r => (r.objectId?._id || r.objectId) === selectedReportObject);
+                const managerStatus = savedReport?.content?.stages[sIdx]?.managerStatus;
+
+                return (
+                  <div key={sIdx} className="report-stage-block" style={{ marginBottom: '30px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '4px', height: '18px', background: '#38bdf8' }}></div>
+                        <h4 style={{ color: '#38bdf8', margin: 0, textTransform: 'uppercase', fontSize: '13px', fontWeight: 800 }}>{stage.name}</h4>
+                      </div>
+                      
+                      {/* СТАТУС ВІД МЕНЕДЖЕРА (ЯКЩО Є) */}
+                      {managerStatus && (
+                        <div style={{ 
+                          fontSize: '10px', fontWeight: 900, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase',
+                          border: `1px solid ${managerStatus === 'Завершено' ? '#10b981' : managerStatus === 'Відхилено' ? '#ef4444' : '#38bdf8'}`,
+                          color: managerStatus === 'Завершено' ? '#10b981' : managerStatus === 'Відхилено' ? '#ef4444' : '#38bdf8',
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          {managerStatus === 'Завершено' ? '✅ ЗАВЕРШЕНО МЕНЕДЖЕРОМ' : managerStatus}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <StyledTable style={{ width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th width="50%">Технологічна операція</th>
+                          <th width="10%" style={{ textAlign: 'center' }}>Об'єм</th>
+                          <th width="20%" style={{ textAlign: 'center' }}>Початок</th>
+                          <th width="20%" style={{ textAlign: 'center' }}>Кінець</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </StyledTable>
-                </div>
-              ))}
+                      </thead>
+                      <tbody>
+                        {stage.tasks.map((task, tIdx) => (
+                          <tr key={tIdx}>
+                            <td style={{ color: '#f8fafc', fontWeight: 500 }}>{task.title}</td>
+                            <td style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 800 }}>{task.volume}</td>
+                            <td style={{ textAlign: 'center', fontSize: '12px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString('uk-UA') : '—'}</td>
+                            <td style={{ textAlign: 'center', color: '#4ade80', fontWeight: 700, fontSize: '12px' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString('uk-UA') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </StyledTable>
+                  </div>
+                );
+              })}
             </div>
           ))}
 
-        {/* БЛОК ПІДПИСІВ */}
         <div style={{ marginTop: '60px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
             <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Технічний координатор</p>
@@ -2621,8 +2632,9 @@ const handleImportExcel = (e) => {
             <tr>
               <th>№ Звіту</th>
               <th>Об'єкт будівництва</th>
-              <th>Дата збереження</th>
+              <th>Дата</th>
               <th>Відповідальний</th>
+              <th>Статус перевірки</th> {/* НОВА КОЛОНКА */}
               <th style={{ textAlign: 'right' }}>Дії</th>
             </tr>
           </thead>
@@ -2631,8 +2643,24 @@ const handleImportExcel = (e) => {
               <tr key={report._id}>
                 <td><code style={{ color: '#38bdf8', fontWeight: 800 }}>{report.reportNumber}</code></td>
                 <td><b>{report.objectId?.address || 'Об’єкт видалено'}</b></td>
-                <td>{new Date(report.createdAt).toLocaleString('uk-UA')}</td>
+                <td>{new Date(report.createdAt).toLocaleDateString('uk-UA')}</td>
                 <td>{report.generatedBy}</td>
+                
+                {/* ІНДИКАТОР СТАТУСУ */}
+                <td>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {report.content.stages.map((s, idx) => (
+                      <Tooltip key={idx} title={`${s.name}: ${s.managerStatus || 'В роботі'}`}>
+                        <div style={{ 
+                          width: '8px', height: '8px', borderRadius: '50%', 
+                          background: s.managerStatus === 'Завершено' ? '#10b981' : 
+                                      s.managerStatus === 'Відхилено' ? '#ef4444' : '#334155' 
+                        }} />
+                      </Tooltip>
+                    ))}
+                  </div>
+                </td>
+
                 <td style={{ textAlign: 'right' }}>
                   <IconButton onClick={() => handlePrintArchivedReport(report)} style={{ color: '#38bdf8' }} title="Переглянути / Друк">
                     <Printer size={18} />
@@ -2643,11 +2671,7 @@ const handleImportExcel = (e) => {
                 </td>
               </tr>
             )) : (
-              <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                  Архів порожній. Збережіть свій перший звіт у вкладці "Звіт з будівництва".
-                </td>
-              </tr>
+              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Архів порожній.</td></tr>
             )}
           </tbody>
         </StyledTable>

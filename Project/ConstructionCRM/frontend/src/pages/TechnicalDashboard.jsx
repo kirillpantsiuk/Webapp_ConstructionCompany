@@ -7,9 +7,9 @@ import {
   CheckCircle2, XCircle, FileText, Loader2, Maximize2, Search, FolderOpen, Info,
   Map as MapIcon, ChevronRight, ChevronLeft, Check, ClipboardCheck, ShoppingCart,
   Home as HouseIcon, Wrench, Hammer, PackagePlus, ListChecks, ListFilter,
-  Calendar, Users, CalendarDays, List, BarChart3,CheckCircle,  FolderTree, CornerDownRight,FileBarChart, FileSearch
+  Calendar, Users, CalendarDays, List, BarChart3, CheckCircle, FolderTree, 
+  CornerDownRight, FileBarChart, FileSearch, Save
 } from 'lucide-react';
-
 import { Gantt, ViewMode } from 'gantt-task-react';
 import "gantt-task-react/dist/index.css";
 
@@ -285,6 +285,27 @@ const AlertText = styled.div` display: flex; align-items: center; gap: 12px; col
 const ConfirmLogoutButton = styled.button` background: rgba(255, 255, 255, 0.2); border: 2px solid white; color: white; padding: 8px 18px; border-radius: 25px; font-size: 14px; font-weight: 900; cursor: pointer; transition: 0.2s; &:hover { background: white; color: #f97316; } `;
 const CancelLogoutLink = styled.div` color: #94a3b8; font-size: 14px; margin-top: 20px; cursor: pointer; text-decoration: underline; text-align: center; font-weight: 600; &:hover { color: white; } `;
 
+// --- ДОПОМІЖНА ФУНКЦІЯ ДЛЯ ПІДРАХУНКУ НЕРОБОЧИХ ДНІВ ---
+  const getOffDaysCount = (startStr, endStr) => {
+    if (!startStr || !endStr) return 0;
+    let count = 0;
+    let current = new Date(startStr);
+    const end = new Date(endStr);
+
+    // Проходимо циклом від дати початку до дати кінця
+    while (current <= end) {
+      const dateISO = current.toISOString().split('T')[0];
+      const isWeekend = current.getDay() === 0 || current.getDay() === 6; // 0-Нд, 6-Сб
+      const isHoliday = MathModelEngine.constants.holidays.includes(dateISO);
+
+      if (isWeekend || isHoliday) {
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  };
+
 // --- ФУНКЦІЯ ВИЗНАЧЕННЯ СПЕЦІАЛІЗАЦІЙ ЗА ЕТАПОМ (ОНОВЛЕНА) ---
 const getRequiredSpecialization = (stageName) => {
   if (!stageName) return null;
@@ -361,37 +382,66 @@ const getStageColors = (stageName) => {
   return { bg: 'rgba(148, 163, 184, 0.2)', fill: '#94a3b8', hover: '#cbd5e1' }; // Сірий (за замовчуванням)
 };
 
-// --- МАТЕМАТИЧНЕ ЯДРО СИСТЕМИ (Розділ 2 моделі) ---
+// --- МАТЕМАТИЧНЕ ЯДРО СИСТЕМИ (Оновлено: врахування свят 2026) ---
 const MathModelEngine = {
   constants: {
-    H: 8, // Тривалість зміни
-    N: { brick: 6, gasblock: 2, machine: 1.5, manual: 8, finish: 4 }, // Норми N_ij
-    Delta: { form: 5, found: 21, belt: 10, plast: 12, screed: 25 } // Тех. перерви Δ
+    H: 8,
+    N: { brick: 6, gasblock: 2, machine: 1.5, manual: 8, finish: 4 },
+    Delta: { form: 5, found: 21, belt: 10, plast: 12, screed: 25 },
+    holidays: [
+      "2026-01-01", "2026-01-07", "2026-03-08", "2026-04-12",
+      "2026-05-01", "2026-05-09", "2026-06-28", "2026-08-24",
+      "2026-10-14", "2026-12-25"
+    ]
   },
-  // d_ij(m) = ceil((V * N) / (R * H))
+
+  isNonWorking: (date) => {
+    const d = new Date(date);
+    const day = d.getDay(); // 0-Нд, 6-Сб
+    const iso = d.toISOString().split('T')[0];
+    return day === 0 || day === 6 || MathModelEngine.constants.holidays.includes(iso);
+  },
+
+  ensureWorkingDay: (date) => {
+    let d = new Date(date);
+    // Якщо дата випала на вихідний — рухаємо вперед до робочого дня (Пн)
+    while (MathModelEngine.isNonWorking(d)) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
+  },
+
   calculateDuration: (V, materialKey, R) => {
     const norm = MathModelEngine.constants.N[materialKey] || 4;
     const workers = R > 0 ? R : 2; 
     return Math.ceil((V * norm) / (workers * MathModelEngine.constants.H));
   },
-  // Функція C(t) - розв'язання рівняння суми робочих днів (пропуск Сб/Нд)
+
+  // ГАРАНТОВАНА ВІДСУТНІСТЬ ВИХІДНИХ У ТЕРМІНАХ
   findFinishDate: (startDate, duration) => {
-    let date = new Date(startDate);
-    let remainingDays = duration;
-    while (remainingDays > 1) {
+    // 1. Початок МАЄ бути в робочий день
+    let date = MathModelEngine.ensureWorkingDay(new Date(startDate));
+    let remaining = duration;
+
+    // 2. Якщо робота 1 день — вона закінчується в той самий робочий день
+    // Якщо більше — рахуємо тільки робочі дні
+    while (remaining > 1) {
       date.setDate(date.getDate() + 1);
-      if (date.getDay() !== 0 && date.getDay() !== 6) remainingDays--;
+      if (!MathModelEngine.isNonWorking(date)) {
+        remaining--;
+      }
     }
+    // Кінцева дата автоматично буде робочим днем, бо цикл зупиняється тільки на них
     return date;
   },
-  // Додавання Δ (календарні дні для процесів твердіння)
+
   addTechPause: (date, delta) => {
     const res = new Date(date);
     res.setDate(res.getDate() + delta);
     return res;
   }
 };
-
+// тут кінець мат ядра
 // =============================================================================
 // ОСНОВНИЙ КОМПОНЕНТ
 // =============================================================================
@@ -996,7 +1046,257 @@ const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 })
   const filteredObjects = useMemo(() => buildingObjects.filter(obj => obj.address.toLowerCase().includes(searchTerm.toLowerCase())), [buildingObjects, searchTerm]);
   const objectsWithInspection = useMemo(() => buildingObjects.filter(obj => inspections.some(ins => (ins.objectId?._id || ins.objectId) === obj._id)), [buildingObjects, inspections]);
   const materialsByStage = useMemo(() => (activeStep >= 4 && activeStep <= 6) ? materials.filter(m => m.stage === activeStep) : [], [materials, activeStep]);
-// 2. Логіка фільтрації зайнятих робітників
+
+const handleApplyFullMathModel = () => {
+  if (!currentCalendarPlan || !currentCalendarPlan.stages) return;
+
+  const engine = MathModelEngine;
+  const Δ = engine.constants.Delta;
+  const { material, Xin } = modelParams;
+  const newPlan = JSON.parse(JSON.stringify(currentCalendarPlan));
+  
+  // Старт проекту — перший доступний робочий день
+  let projectStart = engine.ensureWorkingDay(new Date()); 
+
+  try {
+    newPlan.stages.forEach((stage, sIdx) => {
+      stage.tasks.forEach((t, tIdx) => {
+        
+        // --- ПІДГОТОВКА (i=1) ---
+        if (sIdx === 0) {
+          t.startDate = projectStart.toISOString();
+          const d = engine.calculateDuration(t.volume || 1, 'machine', t.assignedWorkers?.length);
+          t.endDate = engine.findFinishDate(projectStart, d).toISOString();
+        } 
+        else {
+          let prevEnd;
+          if (tIdx === 0) {
+            const prevStage = newPlan.stages[sIdx - 1];
+            prevEnd = new Date(prevStage.tasks[prevStage.tasks.length - 1].endDate);
+          } else {
+            prevEnd = new Date(stage.tasks[tIdx - 1].endDate);
+          }
+
+          // Базова логіка: наступна робота починається в робочий день після попередньої
+          let calcStart = engine.ensureWorkingDay(prevEnd);
+
+          // ЛОГІКА ПАУЗ (Бетон сохне календарні дні, але робота після нього — тільки в робочий)
+          if (stage.name.includes('ФУНДАМЕНТ')) {
+             if (tIdx === 0 && Xin === 1) { // Опалубка чекає на Труби
+                const earthStage = newPlan.stages[2];
+                const pipesEnd = new Date(earthStage.tasks[3]?.endDate || prevEnd);
+                if (pipesEnd > prevEnd) calcStart = engine.ensureWorkingDay(pipesEnd);
+             }
+             if (t.title.includes('Демонтаж')) { // Демонтаж після Δ_form
+                const afterPause = engine.addTechPause(prevEnd, Δ.form);
+                calcStart = engine.ensureWorkingDay(afterPause); 
+             }
+          }
+          
+          if (stage.name.includes('МОНТАЖ') && tIdx === 0) { // Стіни після Δ_found
+            const afterPause = engine.addTechPause(prevEnd, Δ.found);
+            calcStart = engine.ensureWorkingDay(afterPause);
+          }
+
+          if (t.title.includes('Дах')) { // Дах після Δ_belt
+            const afterPause = engine.addTechPause(prevEnd, Δ.belt);
+            calcStart = engine.ensureWorkingDay(afterPause);
+          }
+
+          t.startDate = calcStart.toISOString();
+          const mat = (stage.name.includes('МОНТАЖ') && tIdx === 0) ? material : 'manual';
+          const duration = engine.calculateDuration(t.volume || 1, mat, t.assignedWorkers?.length);
+          t.endDate = engine.findFinishDate(calcStart, duration).toISOString();
+        }
+      });
+    });
+
+    setCurrentCalendarPlan(newPlan);
+    setNotify({ open: true, message: 'Графік розраховано (вихідні враховано)!', severity: 'success' });
+  } catch (e) {
+  // Тепер 'e' використовується для виводу в консоль
+  console.error("Помилка математичної моделі:", e); 
+  setNotify({ 
+    open: true, 
+    message: 'Помилка розрахунку. Перевірте вхідні дані!', 
+    severity: 'error' 
+  });
+}}
+  //тут кінець
+
+ const handleSaveReport = async () => {
+  if (!selectedReportObject) return;
+
+  // 1. Дістаємо userInfo та парсимо його
+  const userInfoString = localStorage.getItem('userInfo');
+  const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
+  const token = userInfo?.token; // Витягуємо токен з об'єкта
+
+  // Перевірка
+  if (!token) {
+    setNotify({ open: true, message: 'Сесія завершена. Перезайдіть у систему', severity: 'error' });
+    return;
+  }
+
+  const plan = calendarPlans.find(p => 
+    String(p.objectId?._id || p.objectId) === String(selectedReportObject)
+  );
+
+  if (!plan) return;
+
+  try {
+    const response = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // Тепер тут буде правильний токен
+      },
+      body: JSON.stringify({
+        objectId: selectedReportObject,
+        planId: plan._id,
+        stages: plan.stages,
+        generatedBy: userInfo?.login || 'Технічний координатор' 
+      }),
+    });
+
+    if (response.ok) {
+      setNotify({ open: true, message: 'Звіт збережено!', severity: 'success' });
+    } else {
+      const errorText = await response.text();
+      console.error('Помилка:', errorText);
+      throw new Error(`Помилка сервера: ${response.status}`);
+    }
+  } catch (error) {
+    setNotify({ open: true, message: error.message, severity: 'error' });
+  }
+};
+
+const handleCompleteProject = async () => {
+  if (!selectedReportObject) return;
+
+  // Отримуємо токен з userInfo
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  const token = userInfo?.token;
+
+  if (!token) {
+    setNotify({ open: true, message: 'Потрібна авторизація', severity: 'error' });
+    return;
+  }
+
+  const plan = calendarPlans.find(p => String(p.objectId?._id || p.objectId) === String(selectedReportObject));
+  if (!plan) return;
+
+  if (!window.confirm("Завершити проєкт?")) return;
+
+  try {
+    const workerIds = new Set();
+    plan.stages.forEach(stage => {
+      stage.tasks.forEach(task => {
+        task.assignedWorkers?.forEach(w => {
+          const id = typeof w === 'object' ? w._id : w;
+          if (id) workerIds.add(id);
+        });
+      });
+    });
+
+    const response = await fetch('/api/workers/bulk-release', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      },
+      body: JSON.stringify({ ids: Array.from(workerIds) }),
+    });
+
+    if (response.ok) {
+      setWorkers(prev => prev.map(w => workerIds.has(w._id) ? { ...w, isAvailable: true } : w));
+      setNotify({ open: true, message: 'Робітників вивільнено!', severity: 'success' });
+    } else {
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`Помилка: ${response.status}`);
+    }
+  } catch (error) {
+    setNotify({ open: true, message: error.message, severity: 'error' });
+  }
+};
+  // --- АВТОМАТИЧНИЙ РОЗПОДІЛ РОБІТНИКІВ (Норматив R) ---
+  const handleAutoAssignWorkers = () => {
+    if (!currentCalendarPlan) return;
+
+    // Створюємо глибоку копію плану, щоб не мутувати стан напряму
+    const updatedPlan = JSON.parse(JSON.stringify(currentCalendarPlan));
+    const globallyUsedWorkerIds = new Set();
+
+    // Визначаємо цільову кількість людей (R) для конкретних завдань
+    const getTargetCount = (stageName, taskTitle) => {
+      const sName = stageName.toUpperCase();
+      const tTitle = (taskTitle || '').toUpperCase();
+
+      if (sName.includes('ПІДГОТОВКА')) return 3;
+      if (sName.includes('РОЗМІТКА')) return 2;
+      
+      if (sName.includes('ЗЕМЛЯНІ')) {
+        return (tTitle.includes('РИТТЯ') || tTitle.includes('ТРАНШЕЙ')) ? 3 : 2;
+      }
+      
+      if (sName.includes('ФУНДАМЕНТ')) {
+        if (tTitle.includes('БЕТОНУВАННЯ')) return 4;
+        if (tTitle.includes('ОПАЛУБКА') || tTitle.includes('АРМУВАННЯ')) return 3;
+        return 2;
+      }
+      
+      if (sName.includes('МОНТАЖ')) {
+        return tTitle.includes('СТІН') ? 4 : 3;
+      }
+      
+      if (sName.includes('ОЗДОБЛЕННЯ')) {
+        return (tTitle.includes('ШТУКАТУРКА') || tTitle.includes('СТЯЖКА')) ? 3 : 2;
+      }
+      
+      return 2; // Дефолтне значення для інших робіт
+    };
+
+    updatedPlan.stages.forEach((stage) => {
+      // Отримуємо список дозволених спеціалізацій для цього етапу
+      const requiredSpecs = getRequiredSpecialization(stage.name) || [];
+
+      stage.tasks.forEach((task) => {
+        const targetCount = getTargetCount(stage.name, task.title);
+        
+        if (!task.assignedWorkers) task.assignedWorkers = [];
+
+        // Шукаємо вільних робітників, які підходять за фахом і ще не зайняті
+        const candidates = workers.filter(w => 
+          w.isAvailable && 
+          requiredSpecs.includes(w.specialization) && 
+          !globallyUsedWorkerIds.has(w._id)
+        );
+
+        let currentCount = task.assignedWorkers.length;
+
+        for (const worker of candidates) {
+          if (currentCount >= targetCount) break;
+
+          const wId = worker._id;
+          // Додаємо ID робітника, якщо його ще немає в цій задачі
+          if (!task.assignedWorkers.some(id => (typeof id === 'object' ? id._id : id) === wId)) {
+            task.assignedWorkers.push(wId);
+            globallyUsedWorkerIds.add(wId);
+            currentCount++;
+          }
+        }
+      });
+    });
+
+    setCurrentCalendarPlan(updatedPlan);
+    setNotify({ 
+      open: true, 
+      message: `Готово! Автоматично призначено ${globallyUsedWorkerIds.size} фахівців.`, 
+      severity: 'success' 
+    });
+  };
+  // 2. Логіка фільтрації зайнятих робітників
 const assignedWorkerIdsInCurrentPlan = useMemo(() => {
   if (!currentCalendarPlan) return new Set();
   const ids = new Set();
@@ -1506,237 +1806,7 @@ const handleImportExcel = (e) => {
       setNotify({ open: true, message: errorMsg, severity: 'error' }); 
     }
   };
-const handleApplyFullMathModel = () => {
-  if (!currentCalendarPlan || !currentCalendarPlan.stages) return;
 
-  const engine = MathModelEngine;
-  const Δ = engine.constants.Delta;
-  const { material, Xin } = modelParams;
-  const newPlan = JSON.parse(JSON.stringify(currentCalendarPlan));
-  let projectStart = new Date();
-
-  // Допоміжна перевірка валідності перед розрахунком
-  let validationError = "";
-  newPlan.stages.forEach(stage => {
-    stage.tasks.forEach(task => {
-      if (!task.assignedWorkers || task.assignedWorkers.length < 2) {
-        validationError = `Для завдання "${task.title}" потрібно мінімум 2 робітники!`;
-      }
-      if (task.volume < 0) {
-        validationError = `Об'єм завдання "${task.title}" не може бути від'ємним!`;
-      }
-    });
-  });
-
-  if (validationError) {
-    return setNotify({ open: true, message: validationError, severity: 'error' });
-  }
-
-  try {
-    // --- ЕТАП 1: ПІДГОТОВКА (i=1) ---
-    if (newPlan.stages[0]?.tasks?.length > 0) {
-      newPlan.stages[0].tasks.forEach(t => {
-        t.startDate = projectStart.toISOString();
-        const d = engine.calculateDuration(t.volume || 1, 'machine', t.assignedWorkers?.length);
-        t.endDate = engine.findFinishDate(projectStart, d).toISOString();
-      });
-    }
-
-    // --- ЕТАП 2: РОЗМІТКА (i=2) ---
-    const s0Tasks = newPlan.stages[0]?.tasks || [];
-    const t1Finish = s0Tasks.length > 0 
-      ? new Date(Math.max(...s0Tasks.map(t => new Date(t.endDate)))) 
-      : projectStart;
-
-    if (newPlan.stages[1]?.tasks?.length > 0) {
-      const t2Start = engine.findFinishDate(t1Finish, 1);
-      newPlan.stages[1].tasks.forEach((t, idx) => {
-        const startTime = (idx === 0) ? t2Start : new Date(newPlan.stages[1].tasks[idx - 1]?.endDate);
-        t.startDate = startTime.toISOString();
-        t.endDate = engine.findFinishDate(startTime, 1).toISOString();
-      });
-    }
-
-    // --- ЕТАП 3: ЗЕМЛЯНІ РОБОТИ (i=3) ---
-    const s1Tasks = newPlan.stages[1]?.tasks || [];
-    let t3Start = s1Tasks.length > 0 ? new Date(s1Tasks[s1Tasks.length - 1]?.endDate) : t1Finish;
-
-    if (newPlan.stages[2]?.tasks?.length > 0) {
-      newPlan.stages[2].tasks.forEach((t, idx) => {
-        t.startDate = t3Start.toISOString();
-        const d = engine.calculateDuration(t.volume || 1, idx === 0 ? 'machine' : 'manual', t.assignedWorkers?.length);
-        t.endDate = engine.findFinishDate(t3Start, d).toISOString();
-        if (idx < 3) t3Start = new Date(t.endDate); 
-      });
-    }
-
-    // --- ЕТАП 4: ФУНДАМЕНТ (i=4) ---
-    const s2Tasks = newPlan.stages[2]?.tasks || [];
-    if (newPlan.stages[3]?.tasks?.length > 0) {
-      const t3_3Fin = s2Tasks[2]?.endDate ? new Date(s2Tasks[2].endDate) : t3Start;
-      const t3_4Fin = s2Tasks[3]?.endDate ? new Date(s2Tasks[3].endDate) : t3_3Fin;
-      
-      // Логіка Xin: Опалубка (task[0]) чекає на Труби (s2Tasks[3]), якщо туалет всередині
-      const t4_1Start = (Xin === 1) ? new Date(Math.max(t3_3Fin, t3_4Fin)) : t3_3Fin;
-
-      newPlan.stages[3].tasks.forEach((t, idx) => {
-        if (idx === 0) { // Опалубка
-          t.startDate = t4_1Start.toISOString();
-          t.endDate = engine.findFinishDate(t4_1Start, 2).toISOString();
-        } else if (idx === 1) { // Армування
-          t.startDate = newPlan.stages[3].tasks[0].endDate;
-          t.endDate = engine.findFinishDate(new Date(t.startDate), 1).toISOString();
-        } else if (idx === 2) { // Бетонування
-          t.startDate = newPlan.stages[3].tasks[1].endDate;
-          t.endDate = engine.findFinishDate(new Date(t.startDate), 1).toISOString();
-        } else if (idx === 3) { // Демонтаж + Δ_form
-          const betonFinish = new Date(newPlan.stages[3].tasks[2].endDate);
-          t.startDate = engine.addTechPause(betonFinish, Δ.form).toISOString();
-          t.endDate = engine.findFinishDate(new Date(t.startDate), 1).toISOString();
-        }
-      });
-    }
-
-    // --- ЕТАП 5: МОНТАЖ (i=5) ---
-    const w4_3Fin = newPlan.stages[3]?.tasks[2]?.endDate ? new Date(newPlan.stages[3].tasks[2].endDate) : null;
-    
-    if (newPlan.stages[4]?.tasks?.length > 0 && w4_3Fin) {
-      const t5_1Start = engine.addTechPause(w4_3Fin, Δ.found); // 21 день набору міцності
-      
-      newPlan.stages[4].tasks.forEach((t, idx) => {
-        const startTime = (idx === 0) ? t5_1Start : new Date(newPlan.stages[4].tasks[idx-1].endDate);
-        t.startDate = startTime.toISOString();
-        
-        // Для стін (idx=0) враховуємо матеріал
-        const type = (idx === 0) ? material : 'manual';
-        const d = engine.calculateDuration(t.volume || 1, type, t.assignedWorkers?.length);
-        
-        // Для даху (idx=2) додаємо паузу Δ_belt
-        let finalStart = startTime;
-        if (idx === 2) finalStart = engine.addTechPause(new Date(newPlan.stages[4].tasks[1].endDate), Δ.belt);
-        
-        t.startDate = finalStart.toISOString();
-        t.endDate = engine.findFinishDate(finalStart, d || 5).toISOString();
-      });
-    }
-
-    // --- ЕТАП 6: ОЗДОБЛЕННЯ (i=6) ---
-    if (newPlan.stages[5]?.tasks?.length >= 3) {
-        const s4Finish = new Date(newPlan.stages[4].tasks[newPlan.stages[4].tasks.length-1].endDate);
-        
-        newPlan.stages[5].tasks.forEach((t, idx) => {
-            if (idx < 3) {
-                t.startDate = s4Finish.toISOString();
-                t.endDate = engine.findFinishDate(s4Finish, 5).toISOString();
-            } else if (idx === 3) { // Чистове оздоблення після подвійної паузи
-                const w6_2Fin = new Date(newPlan.stages[5].tasks[1].endDate);
-                const w6_3Fin = new Date(newPlan.stages[5].tasks[2].endDate);
-                const t6_4Start = new Date(Math.max(
-                    engine.addTechPause(w6_2Fin, Δ.plast).getTime(),
-                    engine.addTechPause(w6_3Fin, Δ.screed).getTime()
-                ));
-                t.startDate = t6_4Start.toISOString();
-                t.endDate = engine.findFinishDate(t6_4Start, 7).toISOString();
-            }
-        });
-    }
-
-    // --- ЕТАП 7: ЗДАЧА (Кінець проєкту) ---
-    if (newPlan.stages[6]?.tasks?.length > 0) {
-        const lastTaskFinish = new Date(newPlan.stages[5].tasks[newPlan.stages[5].tasks.length-1].endDate);
-        newPlan.stages[6].tasks.forEach(t => {
-            t.startDate = lastTaskFinish.toISOString();
-            t.endDate = engine.findFinishDate(lastTaskFinish, 1).toISOString();
-        });
-    }
-
-    setCurrentCalendarPlan(newPlan);
-    setNotify({ open: true, message: 'Графік розраховано за повною моделлю!', severity: 'success' });
-
-  } catch (e) {
-    console.error("Критична помилка розрахунку:", e);
-    setNotify({ open: true, message: 'Помилка: перевірте кількість завдань у кожному блоці!', severity: 'error' });
-  }
-};
-const handleAutoAssignWorkers = () => {
-  if (!currentCalendarPlan) return;
-
-  const updatedPlan = JSON.parse(JSON.stringify(currentCalendarPlan));
-  const globallyUsedWorkerIds = new Set();
-
-  // Допоміжна функція для визначення нормативного R згідно з моделлю
-  const getTargetCount = (stageName, taskTitle) => {
-    const sName = stageName.toUpperCase();
-    const tTitle = (taskTitle || '').toUpperCase();
-
-    if (sName.includes('ПІДГОТОВКА')) return 3;
-    if (sName.includes('РОЗМІТКА')) return 2;
-    
-    if (sName.includes('ЗЕМЛЯНІ')) {
-      if (tTitle.includes('РИТТЯ') || tTitle.includes('ТРАНШЕЙ')) return 3;
-      return 2;
-    }
-    
-    if (sName.includes('ФУНДАМЕНТ')) {
-      if (tTitle.includes('БЕТОНУВАННЯ')) return 4;
-      if (tTitle.includes('ОПАЛУБКА') || tTitle.includes('АРМУВАННЯ')) return 3;
-      return 2;
-    }
-    
-    if (sName.includes('МОНТАЖ')) {
-      if (tTitle.includes('СТІН')) return 4;
-      return 3;
-    }
-    
-    if (sName.includes('ОЗДОБЛЕННЯ')) {
-      if (tTitle.includes('ШТУКАТУРКА') || tTitle.includes('СТЯЖКА')) return 3;
-      return 2;
-    }
-    
-    if (sName.includes('ЗДАЧА')) return 2;
-    
-    return 2; // Значення за замовчуванням
-  };
-
-  updatedPlan.stages.forEach((stage) => {
-    const requiredSpecs = getRequiredSpecialization(stage.name) || [];
-
-    stage.tasks.forEach((task) => {
-      // Отримуємо точну кількість робітників для цієї конкретної задачі
-      const targetCount = getTargetCount(stage.name, task.title);
-      
-      if (!task.assignedWorkers) task.assignedWorkers = [];
-
-      // Фільтруємо кандидатів
-      const candidates = workers.filter(w => 
-        w.isAvailable && 
-        requiredSpecs.includes(w.specialization) && 
-        !globallyUsedWorkerIds.has(w._id)
-      );
-
-      let currentCount = task.assignedWorkers.length;
-
-      for (const worker of candidates) {
-        if (currentCount >= targetCount) break;
-
-        const wId = worker._id;
-        // Додаємо, якщо робітник ще не в цій задачі
-        if (!task.assignedWorkers.some(id => (typeof id === 'object' ? id._id : id) === wId)) {
-          task.assignedWorkers.push(wId);
-          globallyUsedWorkerIds.add(wId);
-          currentCount++;
-        }
-      }
-    });
-  });
-
-  setCurrentCalendarPlan(updatedPlan);
-  setNotify({ 
-    open: true, 
-    message: `Успішно! Розподілено ${globallyUsedWorkerIds.size} фахівців згідно з мат. моделлю.`, 
-    severity: 'success' 
-  });
-};
   return (
     <DashboardWrapper>
       <GlobalStyle />
@@ -1911,7 +1981,7 @@ const handleAutoAssignWorkers = () => {
   </label>
 </div>
 
-    {/* ВІДОБРАЖЕННЯ ЕТАПІВ ТА ТАБЛИЦЬ ЗАВДАНЬ */}
+{/* ВІДОБРАЖЕННЯ ЕТАПІВ ТА ТАБЛИЦЬ ЗАВДАНЬ */}
 {currentCalendarPlan && (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', marginTop: '20px' }}>
     {currentCalendarPlan.stages.map((stage, sIdx) => {
@@ -1919,12 +1989,13 @@ const handleAutoAssignWorkers = () => {
       let minTasks = 1;
       let hint = "Додайте завдання";
       
-      // Логіка пам'ятки згідно з вимогами мат. моделі
+      // Логіка пам'ятки згідно з вимогами мат. моделі (Розділ 2)
       if (name.includes('ЗЕМЛЯНІ')) { minTasks = 4; hint = "1.Траншеї, 2.Основа, 3.Засипка, 4.Труби (Xin)"; }
       else if (name.includes('ФУНДАМЕНТ')) { minTasks = 4; hint = "1.Опалубка, 2.Армування, 3.Бетон (Δ form), 4.Демонтаж"; }
       else if (name.includes('МОНТАЖ')) { minTasks = 3; hint = "1.Стіни (m), 2.Армопояс, 3.Дах (Δ belt)"; }
       else if (name.includes('ОЗДОБЛЕННЯ')) { minTasks = 4; hint = "1.Електрика, 2.Штукатурка (Δ plast), 3.Стяжка (Δ screed), 4.Фініш"; }
-else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг та передача ключів замовнику"; }
+      else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг та передача ключів замовнику"; }
+      
       const isInvalid = stage.tasks.length < minTasks;
 
       return (
@@ -1956,69 +2027,100 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
             <StyledTable>
               <thead>
                 <tr>
-                  <th width="12%">Об'єм V</th>
-                  <th width="28%">Назва завдання</th>
-                  <th width="15%">Початок</th>
-                  <th width="15%">Кінець</th>
+                  <th width="10%">Об'єм V</th>
+                  <th width="25%">Назва завдання</th>
+                  <th width="18%">Початок (План)</th>
+                  <th width="18%">Кінець (План)</th>
                   <th width="20%">Бригада (R ≥ 2)</th>
-                  <th width="10%" style={{ textAlign: 'right' }}>Дія</th>
+                  <th width="9%" style={{ textAlign: 'right' }}>Дія</th>
                 </tr>
               </thead>
               <tbody>
                 {stage.tasks.map((task, tIdx) => (
                   <tr key={tIdx}>
+                    {/* ОБ'ЄМ */}
                     <td>
                       <input 
-                        type="number" 
-                        min="0"
+                        type="number" min="0"
                         style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontWeight: '900', textAlign: 'center' }}
                         value={task.volume || ''} 
                         onChange={(e) => handleTaskChange(sIdx, tIdx, 'volume', Math.max(0, e.target.value))} 
                       />
                     </td>
+
+                    {/* НАЗВА */}
                     <td>
                       <input 
-                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%' }} 
+                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontSize: '13px' }} 
                         value={task.title} 
                         onChange={(e) => handleTaskChange(sIdx, tIdx, 'title', e.target.value)}
                         placeholder="Назва..."
                       />
                     </td>
-                    <td><div style={{ color: '#94a3b8', fontSize: '13px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'}</div></td>
-                    <td><div style={{ color: '#38bdf8', fontSize: '13px', fontWeight: 'bold' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</div></td>
+                    
+                    {/* ДАТА ПОЧАТКУ */}
                     <td>
-                      {/* ВИКОРИСТАННЯ getRequiredSpecialization ДЛЯ ФІЛЬТРАЦІЇ */}
+                      <input 
+                        type="date"
+                        style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '11px', outline: 'none', cursor: 'pointer' }}
+                        value={task.startDate ? task.startDate.split('T')[0] : ''} 
+                        onChange={(e) => handleTaskChange(sIdx, tIdx, 'startDate', e.target.value)} 
+                      />
+                    </td>
+
+                    {/* ДАТА ЗАКІНЧЕННЯ + ІНДИКАТОР ВИХІДНИХ */}
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <input 
+                          type="date"
+                          style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '11px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }}
+                          value={task.endDate ? task.endDate.split('T')[0] : ''} 
+                          onChange={(e) => handleTaskChange(sIdx, tIdx, 'endDate', e.target.value)} 
+                        />
+                        
+                        {/* РОЗРАХУНОК НЕРОБОЧИХ ДНІВ */}
+                        {task.startDate && task.endDate && (
+                          <div style={{ fontSize: '9px', color: '#f97316', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '5px' }}>
+                            <ShieldAlert size={10} /> 
+                            Неробочих: {getOffDaysCount(task.startDate, task.endDate)} дн.
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* БРИГАДА */}
+                    <td>
                       <select 
-  style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }}
-  value="" 
-  onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
->
-  <option value="" disabled>+ Додати в бригаду</option>
-  {workers
-    .filter(w => 
-      w.isAvailable && 
-      getRequiredSpecialization(stage.name).includes(w.specialization) &&
-      // ОСЬ ТУТ МИ ВИКОРИСТОВУЄМО ПЕРШУ ЗМІННУ:
-      !assignedWorkerIdsInCurrentPlan.has(w._id) 
-    )
-    .map(w => (
-      <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
-    ))
-  }
-</select>
+                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }}
+                        value="" 
+                        onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
+                      >
+                        <option value="" disabled>+ Додати в бригаду</option>
+                        {workers
+                          .filter(w => 
+                            w.isAvailable && 
+                            getRequiredSpecialization(stage.name).includes(w.specialization) &&
+                            !assignedWorkerIdsInCurrentPlan.has(w._id) 
+                          )
+                          .map(w => (
+                            <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
+                          ))
+                        }
+                      </select>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
                         {task.assignedWorkers?.map(wId => {
                           const w = workers.find(wo => wo._id === (typeof wId === 'object' ? wId._id : wId));
                           return w && (
                             <span key={w._id} style={{ background: '#38bdf8', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               {w.lastName} 
-                              {/* ВИКОРИСТАННЯ handleRemoveWorkerFromTask */}
                               <X size={10} style={{ cursor: 'pointer' }} onClick={() => handleRemoveWorkerFromTask(sIdx, tIdx, w._id)} />
                             </span>
                           );
                         })}
                       </div>
                     </td>
+
+                    {/* ВИДАЛЕННЯ */}
                     <td style={{ textAlign: 'right' }}>
                       <IconButton onClick={() => {
                         const upd = {...currentCalendarPlan};
@@ -2035,18 +2137,15 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
       );
     })}
 
-    
-
-    {/* ВИКОРИСТАННЯ handleSaveCalendarPlan */}
+    {/* КНОПКА ЗБЕРЕЖЕННЯ */}
     <ActionButton 
       onClick={handleSaveCalendarPlan} 
-      style={{ width: '100%', height: '60px', background: '#22c55e', color: 'white' }}
+      style={{ width: '100%', height: '60px', background: '#22c55e', color: 'white', borderRadius: '15px', boxShadow: '0 10px 20px rgba(34, 197, 94, 0.2)' }}
     >
-      <ClipboardCheck size={20} /> ЗАТВЕРДИТИ КАЛЕНДАРНИЙ ПЛАН ТА ЗБЕРЕГТИ
+      <ClipboardCheck size={20} /> ЗАТВЕРДИТИ КАЛЕНДАРНИЙ ПЛАН ТА ЗБЕРЕГТИ В БД
     </ActionButton>
   </div>
 )}
-
   </>
 )}
 
@@ -2098,15 +2197,16 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
                 )}
               </div>
             )}
-          {/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
+      {/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
 {calendarViewMode === 'report' && (
   <div style={{ animation: 'fadeIn 0.5s ease' }}>
     {/* КЕРУВАННЯ (no-print приховає це при друці) */}
     <div className="no-print">
-      <SectionTitle><FileBarChart size={18}/> Генерація технічного звіту</SectionTitle>
+      <SectionTitle><FileBarChart size={18}/> Керування звітністю та завершення об'єкта</SectionTitle>
 
       <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '20px', alignItems: 'end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
+          
           <InputGroup>
             <label>Оберіть об'єкт для аналітики</label>
             <select value={selectedReportObject} onChange={(e) => setSelectedReportObject(e.target.value)}>
@@ -2114,13 +2214,34 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
               {buildingObjects.map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
             </select>
           </InputGroup>
+
+          {/* КНОПКА: СФОРМУВАТИ PDF */}
           <ActionButton 
             style={{ height: '48px', background: '#38bdf8', color: '#0f172a', fontWeight: 800, borderRadius: '12px' }}
             onClick={() => window.print()} 
             disabled={!selectedReportObject}
           >
-            <Printer size={18} /> СФОРМУВАТИ PDF
+            <Printer size={18} /> PDF
           </ActionButton>
+
+          {/* КНОПКА: ЗБЕРЕГТИ В БД */}
+          <ActionButton 
+            style={{ height: '48px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', fontWeight: 800, borderRadius: '12px' }}
+            onClick={handleSaveReport}
+            disabled={!selectedReportObject}
+          >
+            <Save size={18} /> ЗБЕРЕГТИ
+          </ActionButton>
+
+          {/* КНОПКА: ЗАВЕРШИТИ БУДІВНИЦТВО */}
+          <ActionButton 
+            style={{ height: '48px', background: '#10b981', color: '#fff', fontWeight: 800, borderRadius: '12px', border: 'none' }}
+            onClick={handleCompleteProject}
+            disabled={!selectedReportObject}
+          >
+            <CheckCircle size={18} /> ЗАВЕРШИТИ
+          </ActionButton>
+
         </div>
       </div>
     </div>
@@ -2195,7 +2316,7 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
             </div>
           ))}
 
-        {/* БЛОК ПІДПИСІВ (ДЛЯ ЮРИДИЧНОЇ СИЛИ) */}
+        {/* БЛОК ПІДПИСІВ */}
         <div style={{ marginTop: '60px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
           <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
             <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Технічний координатор</p>
@@ -2205,10 +2326,6 @@ else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг т�
             <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Відповідальний виконавець</p>
             <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
           </div>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '9px', color: '#334155' }} className="no-print">
-          Звіт згенеровано автоматично CRM-системою технічного нагляду.
         </div>
       </div>
     ) : (

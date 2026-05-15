@@ -22,7 +22,7 @@ const additionalMaterialRoutes = require('./routes/additionalMaterialRoutes');
 const toolRoutes = require('./routes/toolRoutes');
 const projectSupplyRoutes = require('./routes/projectSupplyRoutes');
 
-// Маршрути для Робітників
+// Маршрути для Робітників (включаючи bulk-release)
 const workerRoutes = require('./routes/workerRoutes');
 
 // Маршрути: Календарне планування (Графіки робіт)
@@ -30,6 +30,9 @@ const calendarPlanRoutes = require('./routes/calendarPlanRoutes');
 
 // НОВИЙ МАРШРУТ: Діаграма Ганта
 const ganttRoutes = require('./routes/ganttRoutes');
+
+// НОВИЙ МАРШРУТ: Звіти з будівництва (ДОДАНО)
+const reportRoutes = require('./routes/reportRoutes');
 
 // Ініціалізація конфігурації
 dotenv.config();
@@ -69,21 +72,25 @@ app.use('/api/workers', workerRoutes);
 app.use('/api/calendar-plans', calendarPlanRoutes);
 app.use('/api/gantt-charts', ganttRoutes);
 
+// Реєстрація звітів (ДОДАНО)
+app.use('/api/reports', reportRoutes);
+
 // --- Статичні файли ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- Головний маршрут для перевірки ---
 app.get('/', (req, res) => {
   res.send(`
-    <h1>🚀 API будівельної CRM працює</h1>
+    <h1 style="font-family: sans-serif; color: #38bdf8;">🚀 API будівельної CRM працює</h1>
     <p>Доступні ендпоінти:</p>
-    <ul>
+    <ul style="font-family: monospace; line-height: 1.6;">
       <li>/api/users - Користувачі</li>
       <li>/api/building-objects - Об'єкти будівництва</li>
       <li>/api/technical-projects - Технічні плани</li>
       <li>/api/calendar-plans - Календарні графіки робіт</li>
       <li>/api/gantt-charts - Дані діаграми Ганта</li>
-      <li>/api/workers - Реєстр робітників</li>
+      <li>/api/workers - Реєстр робітників (в т.ч. bulk-release)</li>
+      <li>/api/reports - Звіти з будівництва</li>
       <li>/api/project-supplies - Відомості комплектації</li>
       <li>/api/tools - База інструментів</li>
       <li>/api/additional-materials - Додаткові матеріали</li>
@@ -114,7 +121,7 @@ const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Сервер запущено на порту ${PORT}`);
-  console.log(`📡 API готове до планування об'єктів.`);
+  console.log(`📡 API готове до планування об'єктів та обробки звітів.`);
 });
 
 // Обробка критичних помилок

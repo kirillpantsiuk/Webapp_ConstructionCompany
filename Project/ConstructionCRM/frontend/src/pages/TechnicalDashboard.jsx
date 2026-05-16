@@ -913,50 +913,122 @@ useEffect(() => {
     win.document.write(`
       <html><head><title>ГРАФІК_${plan._id}</title><style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; font-size: 12px; }
-        h1 { border-bottom: 4px solid #38bdf8; padding-bottom: 10px; text-transform: uppercase; font-size: 22px; margin-bottom: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
-        th { background: #f8fafc; text-transform: uppercase; font-size: 11px; color: #64748b; }
-        .stage-title { margin-top: 30px; font-size: 16px; color: #0f172a; text-transform: uppercase; background: #e0f2fe; padding: 8px; border-left: 4px solid #38bdf8; }
-        @media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
-        @page { size: A4 landscape; margin: 15mm; }
+        
+        body { 
+          font-family: 'Inter', sans-serif; 
+          padding: 20px; 
+          color: #1e293b; 
+          line-height: 1.4; 
+          font-size: 11px; /* Зменшили базовий шрифт для компактності */
+          margin: 0;
+        }
+        
+        h1 { 
+          border-bottom: 3px solid #38bdf8; 
+          padding-bottom: 8px; 
+          text-transform: uppercase; 
+          font-size: 18px; 
+          margin-bottom: 5px; 
+        }
+        
+        /* Зменшуємо таблиці */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+        th { background: #f8fafc; text-transform: uppercase; font-size: 9px; color: #64748b; }
+        td { font-size: 10px; }
+        
+        .stage-title { 
+          margin-top: 20px; 
+          font-size: 13px; 
+          color: #0f172a; 
+          text-transform: uppercase; 
+          background: #e0f2fe; 
+          padding: 6px; 
+          border-left: 4px solid #38bdf8; 
+          font-weight: 800;
+        }
+
+        /* --- МАГІЯ ДЛЯ ВМІЩЕННЯ ДІАГРАМИ --- */
+        .gantt-wrapper {
+          width: 100%;
+          overflow: hidden; /* Обрізаємо все, що вилазить */
+          margin-top: 15px;
+          border: 1px solid #cbd5e1;
+        }
+        
+        /* Зменшуємо сам згенерований Гант */
+        .gantt-wrapper .gantt-container {
+           transform: scale(0.65); /* Зменшуємо масштаб діаграми до 65% */
+           transform-origin: top left;
+           width: 153% !important; /* Розширюємо контейнер, щоб компенсувати scale (100/0.65) */
+           border: none;
+           box-shadow: none;
+        }
+
+        /* Зменшуємо ліву таблицю всередині Ганта */
+        .gantt-wrapper .gantt-table {
+           width: 250px !important;
+        }
+        .gantt-wrapper .c-name { width: 140px !important; font-size: 10px !important; }
+        .gantt-wrapper .c-date { width: 55px !important; font-size: 9px !important; }
+
+        @media print { 
+          * { 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+          } 
+        }
+        
+        /* НАЛАШТУВАННЯ СТОРІНКИ - Формат A3 (або A2) Альбомна орієнтація */
+        @page { 
+          size: A3 landscape; 
+          margin: 10mm; 
+        }
       </style></head><body>
         <h1>Календарний графік виконання робіт</h1>
-        <p style="font-size:14px;">Об'єкт: <b>${obj?.address || '—'}</b> | Створено: ${new Date(plan.createdAt).toLocaleDateString()}</p>
+        <p style="font-size:12px; margin: 0 0 15px 0;">Об'єкт: <b>${obj?.address || '—'}</b> | Створено: ${new Date(plan.createdAt).toLocaleDateString()}</p>
         
-        <h2 style="text-transform:uppercase; font-size:14px; margin-top: 30px;">Візуальний графік (Гант)</h2>
-        ${ganttHtml}
+        <h2 style="text-transform:uppercase; font-size:12px; margin: 15px 0 5px 0;">Візуальний графік (Гант)</h2>
+        
+        <div class="gantt-wrapper">
+           ${ganttHtml}
+        </div>
 
-        <h2 style="text-transform:uppercase; font-size:14px; margin-top: 40px;">Детальний розклад та відповідальні</h2>
-        ${plan.stages.map(stage => `
-          <div class="stage-title">${stage.name}</div>
-          ${stage.tasks.length > 0 ? `
-            <table>
-              <thead><tr><th width="35%">Завдання</th><th width="15%">Початок</th><th width="15%">Закінчення</th><th width="35%">Відповідальні / Робітники</th></tr></thead>
-              <tbody>
-                ${stage.tasks.map(task => {
-                  const workersList = task.assignedWorkers.map(wItem => {
-                    const id = typeof wItem === 'object' ? wItem._id : wItem;
-                    const w = workers.find(x => x._id === id);
-                    return w ? `${w.lastName} ${w.firstName[0]}.` : '';
-                  }).filter(Boolean).join(', ');
-                  return `
-                    <tr>
-                      <td><b>${task.title}</b></td>
-                      <td>${task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'}</td>
-                      <td>${task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</td>
-                      <td>${workersList || '<i>Не призначено</i>'}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          ` : '<p style="color: #94a3b8; font-style: italic;">Завдання ще не сформовані</p>'}
-        `).join('')}
-        <div style="margin-top: 60px; display: flex; justify-content: space-between;">
-          <div style="border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 5px;">Технічний координатор</div>
-          <div style="border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 5px;">Виконроб об'єкта</div>
+        <h2 style="text-transform:uppercase; font-size:12px; margin-top: 25px;">Детальний розклад та відповідальні</h2>
+        
+        <div style="column-count: 2; column-gap: 20px;">
+          ${plan.stages.map(stage => `
+            <div style="break-inside: avoid; margin-bottom: 10px;">
+              <div class="stage-title">${stage.name}</div>
+              ${stage.tasks.length > 0 ? `
+                <table>
+                  <thead><tr><th width="40%">Завдання</th><th width="30%">Дати (Поч-Кін)</th><th width="30%">Бригада</th></tr></thead>
+                  <tbody>
+                    ${stage.tasks.map(task => {
+                      const workersList = task.assignedWorkers.map(wItem => {
+                        const id = typeof wItem === 'object' ? wItem._id : wItem;
+                        const w = workers.find(x => x._id === id);
+                        return w ? `${w.lastName}` : '';
+                      }).filter(Boolean).join(', ');
+                      
+                      return `
+                        <tr>
+                          <td><b>${task.title}</b></td>
+                          <td style="font-size:9px;">${task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'} - ${task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</td>
+                          <td>${workersList || '<i>—</i>'}</td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              ` : '<p style="color: #94a3b8; font-style: italic; font-size: 10px;">Немає завдань</p>'}
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+          <div style="border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px; font-weight: bold;">Технічний координатор</div>
+          <div style="border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px; font-weight: bold;">Виконроб об'єкта</div>
         </div>
         <script>window.onload = () => { window.print(); window.close(); }</script>
       </body></html>
@@ -2119,564 +2191,415 @@ const handleImportExcel = (e) => {
               </div>
             )}
 
-            {activeTab === 'calendar' && (
-              <div style={{animation: 'fadeIn 0.3s'}}>
-                <div style={{display: 'flex', gap: '15px', marginBottom: '20px'}}>
-                  <Button variant={calendarViewMode === 'form' ? "contained" : "outlined"} style={{background: calendarViewMode === 'form' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'form' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('form'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><CalendarDays size={16} style={{marginRight: '8px'}}/> Формування</Button>
-                  <Button variant={calendarViewMode === 'list' ? "contained" : "outlined"} style={{background: calendarViewMode === 'list' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'list' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('list'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><List size={16} style={{marginRight: '8px'}}/> Список графіків</Button>
-                  <Button variant={calendarViewMode === 'gantt' ? "contained" : "outlined"} style={{background: calendarViewMode === 'gantt' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'gantt' ? '#0a0f16' : '#38bdf8', fontWeight: 700}} onClick={() => { setCalendarViewMode('gantt'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}><BarChart3 size={16} style={{marginRight: '8px'}}/> Діаграма Ганта</Button>
-                <Button 
-    variant={calendarViewMode === 'history' ? "contained" : "outlined"} 
-    style={{ background: calendarViewMode === 'history' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'history' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} 
-    onClick={() => setCalendarViewMode('history')}
-  >
-    <FolderOpen size={16} style={{ marginRight: '8px' }} /> Архів звітів
-  </Button>
-                <Button 
-  variant={calendarViewMode === 'report' ? "contained" : "outlined"} 
-  style={{ background: calendarViewMode === 'report' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'report' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} 
-  onClick={() => { setCalendarViewMode('report'); setSelectedReportObject(''); }}
->
-  <FileText size={16} style={{ marginRight: '8px' }} /> Звіт з будівництва
-</Button>
-                </div>
+          {/* --- ВКЛАДКА: КАЛЕНДАРНЕ ПЛАНУВАННЯ --- */}
+{activeTab === 'calendar' && (
+  <div style={{ animation: 'fadeIn 0.3s' }}>
+    {/* НАВІГАЦІЯ ВНУТРІШНЬОЇ ВКЛАДКИ */}
+    <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+      <Button variant={calendarViewMode === 'form' ? "contained" : "outlined"} style={{ background: calendarViewMode === 'form' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'form' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} onClick={() => { setCalendarViewMode('form'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}>
+        <CalendarDays size={16} style={{ marginRight: '8px' }} /> Формування
+      </Button>
+      <Button variant={calendarViewMode === 'list' ? "contained" : "outlined"} style={{ background: calendarViewMode === 'list' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'list' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} onClick={() => { setCalendarViewMode('list'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}>
+        <List size={16} style={{ marginRight: '8px' }} /> Список графіків
+      </Button>
+      <Button variant={calendarViewMode === 'gantt' ? "contained" : "outlined"} style={{ background: calendarViewMode === 'gantt' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'gantt' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} onClick={() => { setCalendarViewMode('gantt'); setSelectedCalendarObject(''); setCurrentCalendarPlan(null); }}>
+        <BarChart3 size={16} style={{ marginRight: '8px' }} /> Діаграма Ганта
+      </Button>
+      <Button variant={calendarViewMode === 'history' ? "contained" : "outlined"} style={{ background: calendarViewMode === 'history' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'history' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} onClick={() => setCalendarViewMode('history')}>
+        <FolderOpen size={16} style={{ marginRight: '8px' }} /> Архів звітів
+      </Button>
+      <Button variant={calendarViewMode === 'report' ? "contained" : "outlined"} style={{ background: calendarViewMode === 'report' ? '#38bdf8' : 'transparent', color: calendarViewMode === 'report' ? '#0a0f16' : '#38bdf8', fontWeight: 700 }} onClick={() => { setCalendarViewMode('report'); setSelectedReportObject(''); }}>
+        <FileText size={16} style={{ marginRight: '8px' }} /> Звіт з будівництва
+      </Button>
+    </div>
 
-
-         {calendarViewMode === 'form' && (
-  <>
-    <SectionTitle><Calendar size={18}/> Параметричне планування (Мат. Модель)</SectionTitle>
-    
-   {/* БЛОК ПАРАМЕТРІВ МОДЕЛІ (m, Xin) */}
-<div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.8fr', gap: '15px', alignItems: 'end' }}>
-        <InputGroup>
-            <label>1. Об'єкт будівництва</label>
-            <select value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
+    {/* РЕЖИМ 1: ФОРМУВАННЯ */}
+    {calendarViewMode === 'form' && (
+      <>
+        <SectionTitle><Calendar size={18} /> Параметричне планування (Мат. Модель)</SectionTitle>
+        <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.8fr', gap: '15px', alignItems: 'end' }}>
+            <InputGroup>
+              <label>1. Об'єкт будівництва</label>
+              <select value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
                 <option value="">Оберіть об'єкт...</option>
                 {buildingObjects.filter(o => techPlansList.some(p => (p.objectId?._id || p.objectId) === o._id)).map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
-            </select>
-        </InputGroup>
-
-        <InputGroup>
-            <label>2. Матеріал стін (m)</label>
-            <select
-                value={modelParams.material}
-                onChange={e => setModelParams({ ...modelParams, material: e.target.value })}
-            >
+              </select>
+            </InputGroup>
+            <InputGroup>
+              <label>2. Матеріал стін (m)</label>
+              <select value={modelParams.material} onChange={e => setModelParams({ ...modelParams, material: e.target.value })}>
                 <option value="gasblock">Газоблок (N=2)</option>
                 <option value="brick">Цегла (N=6)</option>
-            </select>
-        </InputGroup>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '5px' }}>
-            <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700 }}>3. ТОПОЛОГІЯ (Xin)</label>
-            <div style={{ background: '#0f172a', padding: '6px 12px', borderRadius: '10px', border: '1px solid #334155' }}>
+              </select>
+            </InputGroup>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '5px' }}>
+              <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700 }}>3. ТОПОЛОГІЯ (Xin)</label>
+              <div style={{ background: '#0f172a', padding: '6px 12px', borderRadius: '10px', border: '1px solid #334155' }}>
                 <FormControlLabel
-                    control={
-                        <Switch
-                            checked={modelParams.Xin === 1}
-                            onChange={e => setModelParams({ ...modelParams, Xin: e.target.checked ? 1 : 0 })}
-                            color="primary"
-                        />
-                    }
-                    label={<span style={{ fontSize: '12px', color: '#e2e8f0' }}>{modelParams.Xin === 1 ? "Всередині" : "Зовні"}</span>}
+                  control={<Switch checked={modelParams.Xin === 1} onChange={e => setModelParams({ ...modelParams, Xin: e.target.checked ? 1 : 0 })} color="primary" />}
+                  label={<span style={{ fontSize: '12px', color: '#e2e8f0' }}>{modelParams.Xin === 1 ? "Всередині" : "Зовні"}</span>}
                 />
+              </div>
             </div>
-        </div>
-
-        {/* ГРУПА КНОПОК У 4-Й КОЛОНЦІ */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-            <ActionButton
-                onClick={handleAutoAssignWorkers}
-                disabled={!selectedCalendarObject}
-                style={{ flex: 1, height: '48px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', color: '#38bdf8' }}
-                title="Автоматично призначити вільних козаків"
-            >
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <ActionButton onClick={handleAutoAssignWorkers} disabled={!selectedCalendarObject} style={{ flex: 1, height: '48px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', color: '#38bdf8' }} title="Автоматично призначити вільних козаків">
                 <Users size={18} /> АВТОМАТИЧНИЙ РОЗПОДІЛ
-            </ActionButton>
-
-            <ActionButton
-                onClick={handleApplyFullMathModel}
-                disabled={!selectedCalendarObject}
-                style={{ flex: 1.2, height: '48px', background: 'linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)', color: '#0a0f16' }}
-            >
+              </ActionButton>
+              <ActionButton onClick={handleApplyFullMathModel} disabled={!selectedCalendarObject} style={{ flex: 1.2, height: '48px', background: 'linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)', color: '#0a0f16' }}>
                 <Zap size={18} /> РОЗРАХУВАТИ
-            </ActionButton>
-        </div>
-    </div>
-
-    {/* ДОДАТКОВА ПАНЕЛЬ: ІМПОРТ ТА ШАБЛОНИ */}
-    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(56, 189, 248, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-            <input type="file" accept=".xlsx, .xls" id="excel-upload" style={{ display: 'none' }} onChange={handleImportExcel} />
-            <label htmlFor="excel-upload">
-                <Button variant="outlined" component="span" style={{ color: '#22c55e', borderColor: '#22c55e', fontWeight: 800, borderRadius: '10px' }}>
-                    <FileText size={16} style={{ marginRight: '8px' }} /> ІМПОРТ ПЛАНУ (.XLSX)
-                </Button>
-            </label>
-            <span style={{ fontSize: '11px', color: '#64748b' }}>* Завантажте структуру етапів для швидкого старту</span>
-        </div>
-        
-        <div style={{ color: '#38bdf8', fontSize: '12px', fontWeight: 700 }}>
-             Бригада: {assignedWorkerIdsInCurrentPlan.size} осіб задіяно
-        </div>
-    </div>
-</div>
-
-{/* ВСТАВЛЯТИ ПІСЛЯ БЛОКУ ПАРАМЕТРІВ МОДЕЛІ */}
-<div style={{ marginTop: '20px', padding: '20px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '20px', border: '1px dashed #22c55e', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-    <FileText color="#22c55e" size={24} />
-    <div>
-      <div style={{ fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>ШВИДКИЙ ІМПОРТ СТРУКТУРИ</div>
-      <div style={{ fontSize: '11px', color: '#94a3b8' }}>Завантажте файл .xlsx з колонками: Етап, Назва, Об'єм</div>
-    </div>
-  </div>
-  
-  <input
-    type="file"
-    accept=".xlsx, .xls"
-    id="excel-upload"
-    style={{ display: 'none' }}
-    // ОСЬ ТУТ МИ ВИКОРИСТОВУЄМО ДРУГУ ФУНКЦІЮ:
-    onChange={handleImportExcel} 
-  />
-  <label htmlFor="excel-upload">
-    <Button 
-      variant="contained" 
-      component="span" 
-      style={{ background: '#22c55e', color: '#0f172a', fontWeight: 900, borderRadius: '12px' }}
-    >
-      ОБРАТИ ФАЙЛ
-    </Button>
-  </label>
-</div>
-
-{/* ВІДОБРАЖЕННЯ ЕТАПІВ ТА ТАБЛИЦЬ ЗАВДАНЬ */}
-{currentCalendarPlan && (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', marginTop: '20px' }}>
-    {currentCalendarPlan.stages.map((stage, sIdx) => {
-      const name = stage.name.toUpperCase();
-      let minTasks = 1;
-      let hint = "Додайте завдання";
-      
-      // Логіка пам'ятки згідно з вимогами мат. моделі (Розділ 2)
-      if (name.includes('ЗЕМЛЯНІ')) { minTasks = 4; hint = "1.Траншеї, 2.Основа, 3.Засипка, 4.Труби (Xin)"; }
-      else if (name.includes('ФУНДАМЕНТ')) { minTasks = 4; hint = "1.Опалубка, 2.Армування, 3.Бетон (Δ form), 4.Демонтаж"; }
-      else if (name.includes('МОНТАЖ')) { minTasks = 3; hint = "1.Стіни (m), 2.Армопояс, 3.Дах (Δ belt)"; }
-      else if (name.includes('ОЗДОБЛЕННЯ')) { minTasks = 4; hint = "1.Електрика, 2.Штукатурка (Δ plast), 3.Стяжка (Δ screed), 4.Фініш"; }
-      else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг та передача ключів замовнику"; }
-      
-      const isInvalid = stage.tasks.length < minTasks;
-
-      return (
-        <div key={sIdx} style={{ 
-          background: 'rgba(15, 23, 42, 0.6)', 
-          borderRadius: '24px', 
-          padding: '24px', 
-          border: isInvalid ? '2px solid #ef4444' : '1px solid rgba(56, 189, 248, 0.3)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-            <div>
-              <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '18px' }}>{stage.name}</h3>
-              <div style={{ 
-                marginTop: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
-                background: isInvalid ? 'rgba(239, 68, 68, 0.1)' : 'rgba(74, 222, 128, 0.1)', 
-                color: isInvalid ? '#f87171' : '#4ade80',
-                display: 'flex', alignItems: 'center', gap: '8px'
-              }}>
-                {isInvalid ? <AlertTriangle size={14}/> : <CheckCircle size={14}/>}
-                ПАМ'ЯТКА: {hint} (Зараз: {stage.tasks.length}/{minTasks})
-              </div>
+              </ActionButton>
             </div>
-            <Button variant="outlined" size="small" onClick={() => handleAddTaskToStage(sIdx)} style={{ color: '#38bdf8', borderColor: '#38bdf8' }}>
-              <Plus size={16}/> Додати роботу
+          </div>
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(56, 189, 248, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+              <input type="file" accept=".xlsx, .xls" id="excel-upload-form" style={{ display: 'none' }} onChange={handleImportExcel} />
+              <label htmlFor="excel-upload-form">
+                <Button variant="outlined" component="span" style={{ color: '#22c55e', borderColor: '#22c55e', fontWeight: 800, borderRadius: '10px' }}>
+                  <FileText size={16} style={{ marginRight: '8px' }} /> ІМПОРТ ПЛАНУ (.XLSX)
+                </Button>
+              </label>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>* Завантажте структуру етапів для швидкого старту</span>
+            </div>
+            <div style={{ color: '#38bdf8', fontSize: '12px', fontWeight: 700 }}>
+              Бригада: {assignedWorkerIdsInCurrentPlan.size} осіб задіяно
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '20px', border: '1px dashed #22c55e', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <FileText color="#22c55e" size={24} />
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>ШВИДКИЙ ІМПОРТ СТРУКТУРИ</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>Завантажте файл .xlsx з колонками: Етап, Назва, Об'єм</div>
+            </div>
+          </div>
+          <input type="file" accept=".xlsx, .xls" id="excel-upload-quick" style={{ display: 'none' }} onChange={handleImportExcel} />
+          <label htmlFor="excel-upload-quick">
+            <Button variant="contained" component="span" style={{ background: '#22c55e', color: '#0f172a', fontWeight: 900, borderRadius: '12px' }}>
+              ОБРАТИ ФАЙЛ
             </Button>
-          </div>
-
-          {stage.tasks.length > 0 && (
-            <StyledTable>
-              <thead>
-                <tr>
-                  <th width="10%">Об'єм V</th>
-                  <th width="25%">Назва завдання</th>
-                  <th width="18%">Початок (План)</th>
-                  <th width="18%">Кінець (План)</th>
-                  <th width="20%">Бригада (R ≥ 2)</th>
-                  <th width="9%" style={{ textAlign: 'right' }}>Дія</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stage.tasks.map((task, tIdx) => (
-                  <tr key={tIdx}>
-                    {/* ОБ'ЄМ */}
-                    <td>
-                      <input 
-                        type="number" min="0"
-                        style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontWeight: '900', textAlign: 'center' }}
-                        value={task.volume || ''} 
-                        onChange={(e) => handleTaskChange(sIdx, tIdx, 'volume', Math.max(0, e.target.value))} 
-                      />
-                    </td>
-
-                    {/* НАЗВА */}
-                    <td>
-                      <input 
-                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontSize: '13px' }} 
-                        value={task.title} 
-                        onChange={(e) => handleTaskChange(sIdx, tIdx, 'title', e.target.value)}
-                        placeholder="Назва..."
-                      />
-                    </td>
-                    
-                    {/* ДАТА ПОЧАТКУ */}
-                    <td>
-                      <input 
-                        type="date"
-                        style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '11px', outline: 'none', cursor: 'pointer' }}
-                        value={task.startDate ? task.startDate.split('T')[0] : ''} 
-                        onChange={(e) => handleTaskChange(sIdx, tIdx, 'startDate', e.target.value)} 
-                      />
-                    </td>
-
-                    {/* ДАТА ЗАКІНЧЕННЯ + ІНДИКАТОР ВИХІДНИХ */}
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <input 
-                          type="date"
-                          style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '11px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }}
-                          value={task.endDate ? task.endDate.split('T')[0] : ''} 
-                          onChange={(e) => handleTaskChange(sIdx, tIdx, 'endDate', e.target.value)} 
-                        />
-                        
-                        {/* РОЗРАХУНОК НЕРОБОЧИХ ДНІВ */}
-                        {task.startDate && task.endDate && (
-                          <div style={{ fontSize: '9px', color: '#f97316', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '5px' }}>
-                            <ShieldAlert size={10} /> 
-                            Неробочих: {getOffDaysCount(task.startDate, task.endDate)} дн.
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* БРИГАДА */}
-                    <td>
-                      <select 
-                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }}
-                        value="" 
-                        onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}
-                      >
-                        <option value="" disabled>+ Додати в бригаду</option>
-                        {workers
-                          .filter(w => 
-                            w.isAvailable && 
-                            getRequiredSpecialization(stage.name).includes(w.specialization) &&
-                            !assignedWorkerIdsInCurrentPlan.has(w._id) 
-                          )
-                          .map(w => (
-                            <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
-                          ))
-                        }
-                      </select>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
-                        {task.assignedWorkers?.map(wId => {
-                          const w = workers.find(wo => wo._id === (typeof wId === 'object' ? wId._id : wId));
-                          return w && (
-                            <span key={w._id} style={{ background: '#38bdf8', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              {w.lastName} 
-                              <X size={10} style={{ cursor: 'pointer' }} onClick={() => handleRemoveWorkerFromTask(sIdx, tIdx, w._id)} />
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </td>
-
-                    {/* ВИДАЛЕННЯ */}
-                    <td style={{ textAlign: 'right' }}>
-                      <IconButton onClick={() => {
-                        const upd = {...currentCalendarPlan};
-                        upd.stages[sIdx].tasks.splice(tIdx, 1);
-                        setCurrentCalendarPlan(upd);
-                      }} style={{ color: '#ef4444' }}><Trash2 size={16}/></IconButton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </StyledTable>
-          )}
+          </label>
         </div>
-      );
-    })}
 
-    {/* КНОПКА ЗБЕРЕЖЕННЯ */}
-    <ActionButton 
-      onClick={handleSaveCalendarPlan} 
-      style={{ width: '100%', height: '60px', background: '#22c55e', color: 'white', borderRadius: '15px', boxShadow: '0 10px 20px rgba(34, 197, 94, 0.2)' }}
-    >
-      <ClipboardCheck size={20} /> ЗАТВЕРДИТИ КАЛЕНДАРНИЙ ПЛАН ТА ЗБЕРЕГТИ В БД
-    </ActionButton>
-  </div>
-)}
-  </>
-)}
+        {currentCalendarPlan && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', marginTop: '20px' }}>
+            {currentCalendarPlan.stages.map((stage, sIdx) => {
+              const name = stage.name.toUpperCase();
+              let minTasks = 1;
+              let hint = "Додайте завдання";
+              if (name.includes('ЗЕМЛЯНІ')) { minTasks = 4; hint = "1.Траншеї, 2.Основа, 3.Засипка, 4.Труби (Xin)"; }
+              else if (name.includes('ФУНДАМЕНТ')) { minTasks = 4; hint = "1.Опалубка, 2.Армування, 3.Бетон (Δ form), 4.Демонтаж"; }
+              else if (name.includes('МОНТАЖ')) { minTasks = 3; hint = "1.Стіни (m), 2.Армопояс, 3.Дах (Δ belt)"; }
+              else if (name.includes('ОЗДОБЛЕННЯ')) { minTasks = 4; hint = "1.Електрика, 2.Штукатурка (Δ plast), 3.Стяжка (Δ screed), 4.Фініш"; }
+              else if (name.includes('ЗДАЧА')) { minTasks = 1; hint = "Клінінг та передача ключів замовнику"; }
+              const isInvalid = stage.tasks.length < minTasks;
 
-{calendarViewMode === 'list' && (
-  <>
-    <SectionTitle><ListFilter size={18}/> Затверджені графіки об'єктів</SectionTitle>
-    <TableContainer><StyledTable>
-      <thead><tr><th>Об'єкт</th><th>Дата створення</th><th style={{textAlign: 'right'}}>Дії</th></tr></thead>
-      <tbody>{filteredCalendarPlans.map(plan => (<tr key={plan._id}><td><b>{plan.objectId?.address}</b></td><td>{new Date(plan.createdAt).toLocaleDateString()}</td><td style={{textAlign: 'right'}}><IconButton onClick={() => handlePrintCalendarPlan(plan)} style={{color: '#38bdf8'}} title="Друк графіка"><Printer size={18}/></IconButton><IconButton onClick={() => handleDeleteCalendarPlan(plan._id)} style={{color: '#ef4444'}} title="Видалити"><Trash2 size={18}/></IconButton></td></tr>))}</tbody>
-    </StyledTable></TableContainer>
-  </>
-)}
-{/* Шукай місце після закриття блоку {calendarViewMode === 'report' && (...)} */}
-
-
-                {/* Вкладка Ганта */}
-                {calendarViewMode === 'gantt' && (
-                  <>
-                    <SectionTitle><BarChart3 size={18}/> Інтерактивна діаграма Ганта</SectionTitle>
-                    <div style={{background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '30px'}}>
-                       <label style={{fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '8px', fontWeight: 700}}>ОБЕРІТЬ ОБ'ЄКТ ДЛЯ ПЕРЕГЛЯДУ</label>
-                       <select style={{width: '100%', padding: '15px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '12px'}} value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
-                          <option value="">Виберіть будівництво із затвердженим планом...</option>
-                          {calendarPlans.map(p => (<option key={p._id} value={p.objectId?._id || p.objectId}>{p.objectId?.address || 'Невідомий об\'єкт'}</option>))}
-                       </select>
+              return (
+                <div key={sIdx} style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: '24px', padding: '24px', border: isInvalid ? '2px solid #ef4444' : '1px solid rgba(56, 189, 248, 0.3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '18px' }}>{stage.name}</h3>
+                      <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', background: isInvalid ? 'rgba(239, 68, 68, 0.1)' : 'rgba(74, 222, 128, 0.1)', color: isInvalid ? '#f87171' : '#4ade80', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isInvalid ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
+                        ПАМ'ЯТКА: {hint} (Зараз: {stage.tasks.length}/{minTasks})
+                      </div>
                     </div>
-
-                    {selectedCalendarObject ? (
-                      ganttTasks.length > 0 ? (
-                        <div className="gantt-container" style={{background: '#0f172a', borderRadius: '20px', overflowX: 'auto', border: '2px solid #334155', boxShadow: '0 20px 40px rgba(0,0,0,0.4)'}}>
-                          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding: '20px 20px 0 20px'}}>
-                            <span style={{color: '#38bdf8', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase'}}>Візуалізація термінів</span>
-                            <Button variant="outlined" onClick={() => handlePrintOnlyGantt(currentCalendarPlan?._id)} style={{color:'#38bdf8', borderColor:'#38bdf8'}}><Printer size={16} style={{marginRight:'8px'}}/> Друк діаграми</Button>
-                          </div>
-                          <Gantt 
-                            tasks={ganttTasks} 
-                            viewMode={ViewMode.Day} 
-                            locale="ukr" 
-                            listCellWidth="300px" 
-                            columnWidth={60} 
-                            TaskListHeader={CustomTaskListHeader}
-                            TaskListTable={CustomTaskListTable}
-                            TooltipContent={CustomTooltip}
-                          />
-                        </div>
-                      ) : (
-                        <div style={{textAlign: 'center', color: '#94a3b8', marginTop: '40px'}}><Info size={40} style={{marginBottom: '10px'}}/><br/>У цього об'єкта ще немає сформованих завдань із датами.</div>
-                      )
-                    ) : null}
-                  </>
-                )}
-              </div>
-            )}
-      {/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
-{/* РЕЖИМ: ЗВІТ З БУДІВНИЦТВА */}
-{calendarViewMode === 'report' && (
-  <div style={{ animation: 'fadeIn 0.5s ease' }}>
-    <div className="no-print">
-      <SectionTitle><FileBarChart size={18}/> Керування звітністю та завершення об'єкта</SectionTitle>
-
-      <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
-          
-          <InputGroup>
-            <label>Оберіть об'єкт для аналітики</label>
-            <select value={selectedReportObject} onChange={(e) => setSelectedReportObject(e.target.value)}>
-              <option value="">Виберіть об'єкт зі списку...</option>
-              {buildingObjects.map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
-            </select>
-          </InputGroup>
-
-          <ActionButton 
-            style={{ height: '48px', background: '#38bdf8', color: '#0f172a', fontWeight: 800, borderRadius: '12px' }}
-            onClick={() => window.print()} 
-            disabled={!selectedReportObject}
-          >
-            <Printer size={18} /> PDF
-          </ActionButton>
-
-          <ActionButton 
-            style={{ height: '48px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', fontWeight: 800, borderRadius: '12px' }}
-            onClick={handleSaveReport}
-            disabled={!selectedReportObject}
-          >
-            <Save size={18} /> ЗБЕРЕГТИ
-          </ActionButton>
-
-          <ActionButton 
-            style={{ height: '48px', background: '#10b981', color: '#fff', fontWeight: 800, borderRadius: '12px', border: 'none' }}
-            onClick={handleCompleteProject}
-            disabled={!selectedReportObject}
-          >
-            <CheckCircle size={18} /> ЗАВЕРШИТИ
-          </ActionButton>
-
-        </div>
-      </div>
-    </div>
-
-    {selectedReportObject ? (
-      <div id="printable-report" style={{ 
-        background: 'rgba(15, 23, 42, 0.6)', 
-        padding: '40px 60px', 
-        borderRadius: '24px', 
-        border: '1px solid #1e293b',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-      }}>
-        
-        {/* ФІРМОВА ШАПКА */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #38bdf8', paddingBottom: '15px', marginBottom: '30px' }}>
-          <div>
-            <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '26px', fontWeight: 900, letterSpacing: '-1px' }}>BUILD CRM</h1>
-            <p style={{ color: '#94a3b8', fontSize: '10px', margin: 0, textTransform: 'uppercase', fontWeight: 700 }}>Система технічного координатування будівництва</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc' }}>ЗВІТ № {selectedReportObject.slice(-6).toUpperCase()}</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Дата: {new Date().toLocaleDateString('uk-UA')}</div>
-          </div>
-        </div>
-
-        <div style={{ textAlign: 'center', marginBottom: '35px' }}>
-          <h2 style={{ color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '20px', margin: 0 }}>Звіт про виконання будівельних робіт</h2>
-          <div style={{ marginTop: '10px', display: 'inline-block', padding: '6px 20px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '50px' }}>
-            <span style={{ color: '#94a3b8', fontSize: '11px', marginRight: '8px' }}>ОБ'ЄКТ:</span>
-            <span style={{ color: '#f8fafc', fontWeight: 700, fontSize: '15px' }}>{buildingObjects.find(o => o._id === selectedReportObject)?.address}</span>
-          </div>
-        </div>
-
-        {calendarPlans
-          .filter(plan => (plan.objectId?._id || plan.objectId) === selectedReportObject)
-          .map((plan, pIdx) => (
-            <div key={pIdx}>
-              {plan.stages.map((stage, sIdx) => {
-                // ШУКАЄМО СТАТУС ВІД МЕНЕДЖЕРА В АРХІВІ
-                const savedReport = completedReports.find(r => (r.objectId?._id || r.objectId) === selectedReportObject);
-                const managerStatus = savedReport?.content?.stages[sIdx]?.managerStatus;
-
-                return (
-                  <div key={sIdx} className="report-stage-block" style={{ marginBottom: '30px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '4px', height: '18px', background: '#38bdf8' }}></div>
-                        <h4 style={{ color: '#38bdf8', margin: 0, textTransform: 'uppercase', fontSize: '13px', fontWeight: 800 }}>{stage.name}</h4>
-                      </div>
-                      
-                      {/* СТАТУС ВІД МЕНЕДЖЕРА (ЯКЩО Є) */}
-                      {managerStatus && (
-                        <div style={{ 
-                          fontSize: '10px', fontWeight: 900, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase',
-                          border: `1px solid ${managerStatus === 'Завершено' ? '#10b981' : managerStatus === 'Відхилено' ? '#ef4444' : '#38bdf8'}`,
-                          color: managerStatus === 'Завершено' ? '#10b981' : managerStatus === 'Відхилено' ? '#ef4444' : '#38bdf8',
-                          background: 'rgba(255, 255, 255, 0.05)'
-                        }}>
-                          {managerStatus === 'Завершено' ? '✅ ЗАВЕРШЕНО МЕНЕДЖЕРОМ' : managerStatus}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <StyledTable style={{ width: '100%' }}>
+                    <Button variant="outlined" size="small" onClick={() => handleAddTaskToStage(sIdx)} style={{ color: '#38bdf8', borderColor: '#38bdf8' }}>
+                      <Plus size={16} /> Додати роботу
+                    </Button>
+                  </div>
+                  {stage.tasks.length > 0 && (
+                    <StyledTable>
                       <thead>
                         <tr>
-                          <th width="50%">Технологічна операція</th>
-                          <th width="10%" style={{ textAlign: 'center' }}>Об'єм</th>
-                          <th width="20%" style={{ textAlign: 'center' }}>Початок</th>
-                          <th width="20%" style={{ textAlign: 'center' }}>Кінець</th>
+                          <th width="10%">Об'єм V</th>
+                          <th width="25%">Назва завдання</th>
+                          <th width="18%">Початок (План)</th>
+                          <th width="18%">Кінець (План)</th>
+                          <th width="20%">Бригада (R ≥ 2)</th>
+                          <th width="9%" style={{ textAlign: 'right' }}>Дія</th>
                         </tr>
                       </thead>
                       <tbody>
                         {stage.tasks.map((task, tIdx) => (
                           <tr key={tIdx}>
-                            <td style={{ color: '#f8fafc', fontWeight: 500 }}>{task.title}</td>
-                            <td style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 800 }}>{task.volume}</td>
-                            <td style={{ textAlign: 'center', fontSize: '12px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString('uk-UA') : '—'}</td>
-                            <td style={{ textAlign: 'center', color: '#4ade80', fontWeight: 700, fontSize: '12px' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString('uk-UA') : '—'}</td>
+                            <td>
+                              <input type="number" min="0" style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontWeight: '900', textAlign: 'center' }} value={task.volume || ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'volume', Math.max(0, e.target.value))} />
+                            </td>
+                            <td>
+                              <input style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '10px', borderRadius: '8px', width: '100%', fontSize: '13px' }} value={task.title} onChange={(e) => handleTaskChange(sIdx, tIdx, 'title', e.target.value)} placeholder="Назва..." />
+                            </td>
+                            <td>
+                              <input type="date" style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '11px', outline: 'none', cursor: 'pointer' }} value={task.startDate ? task.startDate.split('T')[0] : ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'startDate', e.target.value)} />
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <input type="date" style={{ background: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '11px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }} value={task.endDate ? task.endDate.split('T')[0] : ''} onChange={(e) => handleTaskChange(sIdx, tIdx, 'endDate', e.target.value)} />
+                                {task.startDate && task.endDate && (
+                                  <div style={{ fontSize: '9px', color: '#f97316', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '5px' }}>
+                                    <ShieldAlert size={10} /> Неробочих: {getOffDaysCount(task.startDate, task.endDate)} дн.
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <select style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '8px', padding: '8px', width: '100%', fontSize: '12px' }} value="" onChange={(e) => handleAddWorkerToTask(sIdx, tIdx, e.target.value)}>
+                                <option value="" disabled>+ Додати в бригаду</option>
+                                {workers.filter(w => w.isAvailable && getRequiredSpecialization(stage.name)?.includes(w.specialization) && !assignedWorkerIdsInCurrentPlan.has(w._id)).map(w => (
+                                  <option key={w._id} value={w._id}>{w.lastName} ({w.specialization})</option>
+                                ))}
+                              </select>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
+                                {task.assignedWorkers?.map(wId => {
+                                  const w = workers.find(wo => wo._id === (typeof wId === 'object' ? wId._id : wId));
+                                  return w && (
+                                    <span key={w._id} style={{ background: '#38bdf8', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      {w.lastName} <X size={10} style={{ cursor: 'pointer' }} onClick={() => handleRemoveWorkerFromTask(sIdx, tIdx, w._id)} />
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <IconButton onClick={() => { const upd = { ...currentCalendarPlan }; upd.stages[sIdx].tasks.splice(tIdx, 1); setCurrentCalendarPlan(upd); }} style={{ color: '#ef4444' }}><Trash2 size={16} /></IconButton>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </StyledTable>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-
-        <div style={{ marginTop: '60px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-          <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
-            <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Технічний координатор</p>
-            <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
+                  )}
+                </div>
+              );
+            })}
+            <ActionButton onClick={handleSaveCalendarPlan} style={{ width: '100%', height: '60px', background: '#22c55e', color: 'white', borderRadius: '15px', boxShadow: '0 10px 20px rgba(34, 197, 94, 0.2)' }}>
+              <ClipboardCheck size={20} /> ЗАТВЕРДИТИ КАЛЕНДАРНИЙ ПЛАН ТА ЗБЕРЕГТИ В БД
+            </ActionButton>
           </div>
-          <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
-            <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Відповідальний виконавець</p>
-            <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
+        )}
+      </>
+    )}
+
+    {/* РЕЖИМ 2: СПИСОК ГРАФІКІВ */}
+    {calendarViewMode === 'list' && (
+      <>
+        <SectionTitle><ListFilter size={18} /> Затверджені графіки об'єктів</SectionTitle>
+        <TableContainer>
+          <StyledTable>
+            <thead>
+              <tr><th>Об'єкт</th><th>Дата створення</th><th style={{ textAlign: 'right' }}>Дії</th></tr>
+            </thead>
+            <tbody>
+              {filteredCalendarPlans.map(plan => (
+                <tr key={plan._id}>
+                  <td><b>{plan.objectId?.address}</b></td>
+                  <td>{new Date(plan.createdAt).toLocaleDateString()}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <IconButton onClick={() => handlePrintCalendarPlan(plan)} style={{ color: '#38bdf8' }} title="Друк графіка"><Printer size={18} /></IconButton>
+                    <IconButton onClick={() => handleDeleteCalendarPlan(plan._id)} style={{ color: '#ef4444' }} title="Видалити"><Trash2 size={18} /></IconButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </StyledTable>
+        </TableContainer>
+      </>
+    )}
+
+    {/* РЕЖИМ 3: ДІАГРАМА ГАНТА */}
+    {calendarViewMode === 'gantt' && (
+      <>
+        <SectionTitle><BarChart3 size={18} /> Інтерактивна діаграма Ганта</SectionTitle>
+        <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '30px' }}>
+          <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '8px', fontWeight: 700 }}>ОБЕРІТЬ ОБ'ЄКТ ДЛЯ ПЕРЕГЛЯДУ</label>
+          <select style={{ width: '100%', padding: '15px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '12px' }} value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
+            <option value="">Виберіть будівництво із затвердженим планом...</option>
+            {calendarPlans.map(p => (<option key={p._id} value={p.objectId?._id || p.objectId}>{p.objectId?.address || 'Невідомий об\'єкт'}</option>))}
+          </select>
+        </div>
+        {selectedCalendarObject ? (
+          ganttTasks.length > 0 ? (
+            <div className="gantt-container" style={{ background: '#0f172a', borderRadius: '20px', overflowX: 'auto', border: '2px solid #334155', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0 20px' }}>
+                <span style={{ color: '#38bdf8', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase' }}>Візуалізація термінів</span>
+                <Button variant="outlined" onClick={() => handlePrintOnlyGantt(currentCalendarPlan?._id)} style={{ color: '#38bdf8', borderColor: '#38bdf8' }}><Printer size={16} style={{ marginRight: '8px' }} /> Друк діаграми</Button>
+              </div>
+              <Gantt tasks={ganttTasks} viewMode={ViewMode.Day} locale="ukr" listCellWidth="300px" columnWidth={60} TaskListHeader={CustomTaskListHeader} TaskListTable={CustomTaskListTable} TooltipContent={CustomTooltip} />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '40px' }}><Info size={40} style={{ marginBottom: '10px' }} /><br />У цього об'єкта ще немає сформованих завдань із датами.</div>
+          )
+        ) : null}
+      </>
+    )}
+
+    {/* РЕЖИМ 4: ЗВІТ З БУДІВНИЦТВА */}
+    {calendarViewMode === 'report' && (
+      <div style={{ animation: 'fadeIn 0.5s ease' }}>
+        <div className="no-print">
+          <SectionTitle><FileBarChart size={18} /> Керування звітністю та завершення об'єкта</SectionTitle>
+          <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.2)', marginBottom: '25px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
+              <InputGroup>
+                <label>Оберіть об'єкт для аналітики</label>
+                <select value={selectedReportObject} onChange={(e) => setSelectedReportObject(e.target.value)}>
+                  <option value="">Виберіть об'єкт зі списку...</option>
+                  {buildingObjects.map(obj => (<option key={obj._id} value={obj._id}>{obj.address}</option>))}
+                </select>
+              </InputGroup>
+              <ActionButton style={{ height: '48px', background: '#38bdf8', color: '#0f172a', fontWeight: 800, borderRadius: '12px' }} onClick={() => window.print()} disabled={!selectedReportObject}>
+                <Printer size={18} /> PDF
+              </ActionButton>
+              <ActionButton style={{ height: '48px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', fontWeight: 800, borderRadius: '12px' }} onClick={handleSaveReport} disabled={!selectedReportObject}>
+                <Save size={18} /> ЗБЕРЕГТИ
+              </ActionButton>
+              <ActionButton style={{ height: '48px', background: '#10b981', color: '#fff', fontWeight: 800, borderRadius: '12px', border: 'none' }} onClick={handleCompleteProject} disabled={!selectedReportObject}>
+                <CheckCircle size={18} /> ЗАВЕРШИТИ
+              </ActionButton>
+            </div>
           </div>
         </div>
-      </div>
-    ) : (
-      <div style={{ textAlign: 'center', padding: '100px', background: 'rgba(30, 41, 59, 0.2)', borderRadius: '24px', border: '2px dashed #1e293b' }}>
-        <FileBarChart size={50} color="#1e293b" style={{ marginBottom: '15px' }} />
-        <p style={{ color: '#64748b', fontSize: '15px' }}>Будь ласка, оберіть об'єкт для генерації технічного звіту</p>
+
+        {selectedReportObject ? (
+          <div id="printable-report" style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '40px 60px', borderRadius: '24px', border: '1px solid #1e293b', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #38bdf8', paddingBottom: '15px', marginBottom: '30px' }}>
+              <div>
+                <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '26px', fontWeight: 900, letterSpacing: '-1px' }}>BUILD CRM</h1>
+                <p style={{ color: '#94a3b8', fontSize: '10px', margin: 0, textTransform: 'uppercase', fontWeight: 700 }}>Система технічного координатування будівництва</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc' }}>ЗВІТ № {selectedReportObject.slice(-6).toUpperCase()}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>Дата: {new Date().toLocaleDateString('uk-UA')}</div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+              <h2 style={{ color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '20px', margin: 0 }}>Звіт про виконання будівельних робіт</h2>
+              <div style={{ marginTop: '10px', display: 'inline-block', padding: '6px 20px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '50px' }}>
+                <span style={{ color: '#94a3b8', fontSize: '11px', marginRight: '8px' }}>ОБ'ЄКТ:</span>
+                <span style={{ color: '#f8fafc', fontWeight: 700, fontSize: '15px' }}>{buildingObjects.find(o => o._id === selectedReportObject)?.address}</span>
+              </div>
+            </div>
+
+            {calendarPlans.filter(plan => (plan.objectId?._id || plan.objectId) === selectedReportObject).map((plan, pIdx) => (
+              <div key={pIdx}>
+                {plan.stages.map((stage, sIdx) => {
+                  const savedReport = completedReports.find(r => String(r.objectId?._id || r.objectId) === String(selectedReportObject));
+                  const managerStatus = savedReport?.content?.stages[sIdx]?.managerStatus;
+                  return (
+                    <div key={sIdx} className="report-stage-block" style={{ marginBottom: '30px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '4px', height: '18px', background: '#38bdf8' }}></div>
+                          <h4 style={{ color: '#38bdf8', margin: 0, textTransform: 'uppercase', fontSize: '13px', fontWeight: 800 }}>{stage.name}</h4>
+                        </div>
+                        {managerStatus && (
+                          <div style={{ fontSize: '10px', fontWeight: 900, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', border: `1px solid ${managerStatus === 'Завершено' ? '#10b981' : managerStatus === 'Відхилено' ? '#ef4444' : '#38bdf8'}`, color: managerStatus === 'Завершено' ? '#10b981' : managerStatus === 'Відхилено' ? '#ef4444' : '#38bdf8', background: 'rgba(255, 255, 255, 0.05)' }}>
+                            {managerStatus === 'Завершено' ? '✅ ЗАВЕРШЕНО МЕНЕДЖЕРОМ' : managerStatus}
+                          </div>
+                        )}
+                      </div>
+                      <StyledTable style={{ width: '100%' }}>
+                        <thead>
+                          <tr>
+                            <th width="50%">Технологічна операція</th>
+                            <th width="10%" style={{ textAlign: 'center' }}>Об'єм</th>
+                            <th width="20%" style={{ textAlign: 'center' }}>Початок</th>
+                            <th width="20%" style={{ textAlign: 'center' }}>Кінець</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stage.tasks.map((task, tIdx) => (
+                            <tr key={tIdx}>
+                              <td style={{ color: '#f8fafc', fontWeight: 500 }}>{task.title}</td>
+                              <td style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 800 }}>{task.volume}</td>
+                              <td style={{ textAlign: 'center', fontSize: '12px' }}>{task.startDate ? new Date(task.startDate).toLocaleDateString('uk-UA') : '—'}</td>
+                              <td style={{ textAlign: 'center', color: '#4ade80', fontWeight: 700, fontSize: '12px' }}>{task.endDate ? new Date(task.endDate).toLocaleDateString('uk-UA') : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </StyledTable>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <div style={{ marginTop: '60px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+              <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Технічний координатор</p>
+                <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
+              </div>
+              <div style={{ borderTop: '1px solid #334155', width: '260px', textAlign: 'center', paddingTop: '10px' }}>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>Відповідальний виконавець</p>
+                <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>____________________ / (підпис)</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '100px', background: 'rgba(30, 41, 59, 0.2)', borderRadius: '24px', border: '2px dashed #1e293b' }}>
+            <FileBarChart size={50} color="#1e293b" style={{ marginBottom: '15px' }} />
+            <p style={{ color: '#64748b', fontSize: '15px' }}>Будь ласка, оберіть об'єкт для генерації технічного звіту</p>
+          </div>
+        )}
       </div>
     )}
-  </div>
-)}
-{/* РЕЖИМ: АРХІВ (ІСТОРІЯ ЗВІТІВ) */}
-{calendarViewMode === 'history' && (
-  <div style={{ animation: 'fadeIn 0.5s ease' }}>
-    <div className="no-print">
-      <SectionTitle><FolderOpen size={18}/> Архів завершених технічних звітів</SectionTitle>
-      
-      <TableContainer>
-        <StyledTable>
-          <thead>
-            <tr>
-              <th>№ Звіту</th>
-              <th>Об'єкт будівництва</th>
-              <th>Дата</th>
-              <th>Відповідальний</th>
-              <th>Статус перевірки</th> {/* НОВА КОЛОНКА */}
-              <th style={{ textAlign: 'right' }}>Дії</th>
-            </tr>
-          </thead>
-          <tbody>
-            {completedReports.length > 0 ? completedReports.map(report => (
-              <tr key={report._id}>
-                <td><code style={{ color: '#38bdf8', fontWeight: 800 }}>{report.reportNumber}</code></td>
-                <td><b>{report.objectId?.address || 'Об’єкт видалено'}</b></td>
-                <td>{new Date(report.createdAt).toLocaleDateString('uk-UA')}</td>
-                <td>{report.generatedBy}</td>
-                
-                {/* ІНДИКАТОР СТАТУСУ */}
-                <td>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {report.content.stages.map((s, idx) => (
-                      <Tooltip key={idx} title={`${s.name}: ${s.managerStatus || 'В роботі'}`}>
-                        <div style={{ 
-                          width: '8px', height: '8px', borderRadius: '50%', 
-                          background: s.managerStatus === 'Завершено' ? '#10b981' : 
-                                      s.managerStatus === 'Відхилено' ? '#ef4444' : '#334155' 
-                        }} />
-                      </Tooltip>
-                    ))}
-                  </div>
-                </td>
 
-                <td style={{ textAlign: 'right' }}>
-                  <IconButton onClick={() => handlePrintArchivedReport(report)} style={{ color: '#38bdf8' }} title="Переглянути / Друк">
-                    <Printer size={18} />
-                  </IconButton>
-                  <IconButton onClick={() => handleDeleteReport(report._id)} style={{ color: '#ef4444' }} title="Видалити">
-                    <Trash2 size={18} />
-                  </IconButton>
-                </td>
-              </tr>
-            )) : (
-              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Архів порожній.</td></tr>
-            )}
-          </tbody>
-        </StyledTable>
-      </TableContainer>
-    </div>
+    {/* РЕЖИМ 5: АРХІВ (ІСТОРІЯ ЗВІТІВ) */}
+    {calendarViewMode === 'history' && (
+      <div style={{ animation: 'fadeIn 0.5s ease' }}>
+        <div className="no-print">
+          <SectionTitle><FolderOpen size={18} /> Архів завершених технічних звітів</SectionTitle>
+          <TableContainer>
+            <StyledTable>
+              <thead>
+                <tr>
+                  <th>№ Звіту</th>
+                  <th>Об'єкт будівництва</th>
+                  <th>Дата</th>
+                  <th>Відповідальний</th>
+                  <th>Статус перевірки</th>
+                  <th style={{ textAlign: 'right' }}>Дії</th>
+                </tr>
+              </thead>
+              <tbody>
+                {completedReports.length > 0 ? completedReports.map(report => (
+                  <tr key={report._id}>
+                    <td><code style={{ color: '#38bdf8', fontWeight: 800 }}>{report.reportNumber}</code></td>
+                    <td><b>{report.objectId?.address || 'Об’єкт видалено'}</b></td>
+                    <td>{new Date(report.createdAt).toLocaleDateString('uk-UA')}</td>
+                    <td>{report.generatedBy}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {report.content.stages.map((s, idx) => (
+                          <Tooltip key={idx} title={`${s.name}: ${s.managerStatus || 'В роботі'}`}>
+                            <div style={{
+                              width: '8px', height: '8px', borderRadius: '50%',
+                              background: s.managerStatus === 'Завершено' ? '#10b981' :
+                                s.managerStatus === 'Відхилено' ? '#ef4444' : '#334155'
+                            }} />
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <IconButton onClick={() => handlePrintArchivedReport(report)} style={{ color: '#38bdf8' }} title="Переглянути / Друк">
+                        <Printer size={18} />
+                      </IconButton>
+                      <IconButton onClick={() => handleDeleteReport(report._id)} style={{ color: '#ef4444' }} title="Видалити">
+                        <Trash2 size={18} />
+                      </IconButton>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Архів порожній.</td></tr>
+                )}
+              </tbody>
+            </StyledTable>
+          </TableContainer>
+        </div>
+      </div>
+    )}
+
   </div>
 )}
             {/* ВКЛАДКА: МАТЕРІАЛИ ТА ІНСТРУМЕНТИ */}

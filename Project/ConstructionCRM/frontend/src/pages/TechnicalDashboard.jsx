@@ -488,12 +488,19 @@ const [calendarViewMode, setCalendarViewMode] = useState(() => {
   const [selectedCalendarObject, setSelectedCalendarObject] = useState('');
   const [selectedReportObject, setSelectedReportObject] = useState('');
   const [currentCalendarPlan, setCurrentCalendarPlan] = useState(null);
-   
+   const [ganttViewMode, setGanttViewMode] = useState(ViewMode.Week);
 const [modelParams, setModelParams] = useState({ material: 'gasblock', Xin: 1 });
   const userInfo = useMemo(() => {
     const data = localStorage.getItem('userInfo');
     return data ? JSON.parse(data) : null;
   }, []);
+
+  const ganttColumnWidth = useMemo(() => {
+    if (ganttViewMode === ViewMode.Day) return 40;
+    if (ganttViewMode === ViewMode.Week) return 80;
+    if (ganttViewMode === ViewMode.Month) return 150;
+    return 80;
+  }, [ganttViewMode]);
 
   const initialInspectionState = useMemo(() => ({
     objectId: '', soilType: 'Чорнозем', groundwaterLevel: 'Низький (>3м)', relief: '', 
@@ -905,136 +912,50 @@ useEffect(() => {
     win.document.close();
   };
 
-  const handlePrintCalendarPlan = (plan) => {
-    const obj = buildingObjects.find(o => o._id === (plan.objectId?._id || plan.objectId));
-    const ganttHtml = generateGanttHtmlString(plan);
+const handlePrintCalendarPlan = (plan) => {
+  const obj = buildingObjects.find(o => o._id === (plan.objectId?._id || plan.objectId));
+  const ganttHtml = generateGanttHtmlString(plan); // Використовує вашу існуючу функцію
 
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <html><head><title>ГРАФІК_${plan._id}</title><style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        
-        body { 
-          font-family: 'Inter', sans-serif; 
-          padding: 20px; 
-          color: #1e293b; 
-          line-height: 1.4; 
-          font-size: 11px; /* Зменшили базовий шрифт для компактності */
-          margin: 0;
-        }
-        
-        h1 { 
-          border-bottom: 3px solid #38bdf8; 
-          padding-bottom: 8px; 
-          text-transform: uppercase; 
-          font-size: 18px; 
-          margin-bottom: 5px; 
-        }
-        
-        /* Зменшуємо таблиці */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
-        th { background: #f8fafc; text-transform: uppercase; font-size: 9px; color: #64748b; }
-        td { font-size: 10px; }
-        
-        .stage-title { 
-          margin-top: 20px; 
-          font-size: 13px; 
-          color: #0f172a; 
-          text-transform: uppercase; 
-          background: #e0f2fe; 
-          padding: 6px; 
-          border-left: 4px solid #38bdf8; 
-          font-weight: 800;
-        }
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>ГРАФІК_${plan._id}</title><style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+      
+      body { font-family: 'Inter', sans-serif; padding: 10mm; color: #000; font-size: 10px; }
+      h1 { font-size: 16px; text-transform: uppercase; margin-bottom: 5px; }
+      
+      /* --- КОМПАКТНА ДІАГРАМА --- */
+      .gantt-wrapper {
+        width: 100%;
+        margin-top: 10px;
+        transform: scale(0.75); /* Зменшуємо все */
+        transform-origin: top left;
+        width: 133%; /* Компенсуємо scale для заповнення ширини */
+      }
+      
+      .gantt-container { border: 1px solid #ccc; }
+      .gantt-table { width: 200px !important; }
+      .c-name { width: 150px !important; font-size: 9px !important; }
+      .c-date { width: 50px !important; font-size: 9px !important; }
+      
+      /* Робимо місячний вигляд максимально вузьким */
+      .day-cell { width: 25px !important; } 
+      .d-num { font-size: 9px !important; }
 
-        /* --- МАГІЯ ДЛЯ ВМІЩЕННЯ ДІАГРАМИ --- */
-        .gantt-wrapper {
-          width: 100%;
-          overflow: hidden; /* Обрізаємо все, що вилазить */
-          margin-top: 15px;
-          border: 1px solid #cbd5e1;
-        }
-        
-        /* Зменшуємо сам згенерований Гант */
-        .gantt-wrapper .gantt-container {
-           transform: scale(0.65); /* Зменшуємо масштаб діаграми до 65% */
-           transform-origin: top left;
-           width: 153% !important; /* Розширюємо контейнер, щоб компенсувати scale (100/0.65) */
-           border: none;
-           box-shadow: none;
-        }
-
-        /* Зменшуємо ліву таблицю всередині Ганта */
-        .gantt-wrapper .gantt-table {
-           width: 250px !important;
-        }
-        .gantt-wrapper .c-name { width: 140px !important; font-size: 10px !important; }
-        .gantt-wrapper .c-date { width: 55px !important; font-size: 9px !important; }
-
-        @media print { 
-          * { 
-            -webkit-print-color-adjust: exact !important; 
-            print-color-adjust: exact !important; 
-          } 
-        }
-        
-        /* НАЛАШТУВАННЯ СТОРІНКИ - Формат A3 (або A2) Альбомна орієнтація */
-        @page { 
-          size: A3 landscape; 
-          margin: 10mm; 
-        }
-      </style></head><body>
-        <h1>Календарний графік виконання робіт</h1>
-        <p style="font-size:12px; margin: 0 0 15px 0;">Об'єкт: <b>${obj?.address || '—'}</b> | Створено: ${new Date(plan.createdAt).toLocaleDateString()}</p>
-        
-        <h2 style="text-transform:uppercase; font-size:12px; margin: 15px 0 5px 0;">Візуальний графік (Гант)</h2>
-        
-        <div class="gantt-wrapper">
-           ${ganttHtml}
-        </div>
-
-        <h2 style="text-transform:uppercase; font-size:12px; margin-top: 25px;">Детальний розклад та відповідальні</h2>
-        
-        <div style="column-count: 2; column-gap: 20px;">
-          ${plan.stages.map(stage => `
-            <div style="break-inside: avoid; margin-bottom: 10px;">
-              <div class="stage-title">${stage.name}</div>
-              ${stage.tasks.length > 0 ? `
-                <table>
-                  <thead><tr><th width="40%">Завдання</th><th width="30%">Дати (Поч-Кін)</th><th width="30%">Бригада</th></tr></thead>
-                  <tbody>
-                    ${stage.tasks.map(task => {
-                      const workersList = task.assignedWorkers.map(wItem => {
-                        const id = typeof wItem === 'object' ? wItem._id : wItem;
-                        const w = workers.find(x => x._id === id);
-                        return w ? `${w.lastName}` : '';
-                      }).filter(Boolean).join(', ');
-                      
-                      return `
-                        <tr>
-                          <td><b>${task.title}</b></td>
-                          <td style="font-size:9px;">${task.startDate ? new Date(task.startDate).toLocaleDateString() : '—'} - ${task.endDate ? new Date(task.endDate).toLocaleDateString() : '—'}</td>
-                          <td>${workersList || '<i>—</i>'}</td>
-                        </tr>
-                      `;
-                    }).join('')}
-                  </tbody>
-                </table>
-              ` : '<p style="color: #94a3b8; font-style: italic; font-size: 10px;">Немає завдань</p>'}
-            </div>
-          `).join('')}
-        </div>
-
-        <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-          <div style="border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px; font-weight: bold;">Технічний координатор</div>
-          <div style="border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px; font-weight: bold;">Виконроб об'єкта</div>
-        </div>
-        <script>window.onload = () => { window.print(); window.close(); }</script>
-      </body></html>
-    `);
-    win.document.close();
-  };
+      @media print {
+        @page { size: A3 landscape; margin: 10mm; }
+        .no-print { display: none; }
+      }
+    </style></head><body>
+      <h1>Графік робіт: ${obj?.address || '—'}</h1>
+      <div class="gantt-wrapper">
+         ${ganttHtml}
+      </div>
+      <script>window.onload = () => { window.print(); window.close(); }</script>
+    </body></html>
+  `);
+  win.document.close();
+};
 
   const handlePrintOnlyGantt = (planId) => {
     const plan = calendarPlans.find(p => p._id === planId);
@@ -2408,32 +2329,97 @@ const handleImportExcel = (e) => {
     )}
 
     {/* РЕЖИМ 3: ДІАГРАМА ГАНТА */}
-    {calendarViewMode === 'gantt' && (
-      <>
-        <SectionTitle><BarChart3 size={18} /> Інтерактивна діаграма Ганта</SectionTitle>
-        <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '30px' }}>
-          <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '8px', fontWeight: 700 }}>ОБЕРІТЬ ОБ'ЄКТ ДЛЯ ПЕРЕГЛЯДУ</label>
-          <select style={{ width: '100%', padding: '15px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '12px' }} value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
-            <option value="">Виберіть будівництво із затвердженим планом...</option>
-            {calendarPlans.map(p => (<option key={p._id} value={p.objectId?._id || p.objectId}>{p.objectId?.address || 'Невідомий об\'єкт'}</option>))}
-          </select>
-        </div>
-        {selectedCalendarObject ? (
-          ganttTasks.length > 0 ? (
-            <div className="gantt-container" style={{ background: '#0f172a', borderRadius: '20px', overflowX: 'auto', border: '2px solid #334155', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0 20px' }}>
-                <span style={{ color: '#38bdf8', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase' }}>Візуалізація термінів</span>
-                <Button variant="outlined" onClick={() => handlePrintOnlyGantt(currentCalendarPlan?._id)} style={{ color: '#38bdf8', borderColor: '#38bdf8' }}><Printer size={16} style={{ marginRight: '8px' }} /> Друк діаграми</Button>
-              </div>
-              <Gantt tasks={ganttTasks} viewMode={ViewMode.Day} locale="ukr" listCellWidth="300px" columnWidth={60} TaskListHeader={CustomTaskListHeader} TaskListTable={CustomTaskListTable} TooltipContent={CustomTooltip} />
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '40px' }}><Info size={40} style={{ marginBottom: '10px' }} /><br />У цього об'єкта ще немає сформованих завдань із датами.</div>
-          )
-        ) : null}
-      </>
-    )}
+   {/* Режим 3: ДІАГРАМА ГАНТА */}
+                {calendarViewMode === 'gantt' && (
+                  <>
+                    <SectionTitle><BarChart3 size={18} /> Інтерактивна діаграма Ганта</SectionTitle>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '25px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '30px' }}>
+                      <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '8px', fontWeight: 700 }}>ОБЕРІТЬ ОБ'ЄКТ ДЛЯ ПЕРЕГЛЯДУ</label>
+                      <select style={{ width: '100%', padding: '15px', background: '#0f172a', color: 'white', border: '1px solid #334155', borderRadius: '12px' }} value={selectedCalendarObject} onChange={(e) => handleSelectObjectForCalendar(e.target.value)}>
+                        <option value="">Виберіть будівництво із затвердженим планом...</option>
+                        {calendarPlans.map(p => (<option key={p._id} value={p.objectId?._id || p.objectId}>{p.objectId?.address || 'Невідомий об\'єкт'}</option>))}
+                      </select>
+                    </div>
+                    {selectedCalendarObject ? (
+                      ganttTasks.length > 0 ? (
+                        <div className="gantt-container" style={{ background: '#0f172a', borderRadius: '20px', overflowX: 'auto', border: '2px solid #334155', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0 20px', flexWrap: 'wrap', gap: '15px' }}>
+                            <span style={{ color: '#38bdf8', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase' }}>Візуалізація термінів</span>
+                            
+                            {/* ІНТЕРАКТИВНЕ МАСШТАБУВАННЯ (ДЕНЬ / ТИЖДЕНЬ / МІСЯЦЬ) */}
+                            <div style={{ display: 'flex', gap: '8px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
+                              <Button 
+                                size="small"
+                                variant={ganttViewMode === ViewMode.Day ? "contained" : "outlined"} 
+                                onClick={() => setGanttViewMode(ViewMode.Day)}
+                                style={{ 
+                                  fontSize: '11px', 
+                                  fontWeight: 700, 
+                                  color: ganttViewMode === ViewMode.Day ? '#0a0f16' : '#94a3b8', 
+                                  background: ganttViewMode === ViewMode.Day ? '#38bdf8' : 'transparent', 
+                                  borderColor: ganttViewMode === ViewMode.Day ? '#38bdf8' : 'transparent',
+                                  borderRadius: '8px'
+                                }}
+                              >
+                                День
+                              </Button>
+                              <Button 
+                                size="small"
+                                variant={ganttViewMode === ViewMode.Week ? "contained" : "outlined"} 
+                                onClick={() => setGanttViewMode(ViewMode.Week)}
+                                style={{ 
+                                  fontSize: '11px', 
+                                  fontWeight: 700, 
+                                  color: ganttViewMode === ViewMode.Week ? '#0a0f16' : '#38bdf8', 
+                                  background: ganttViewMode === ViewMode.Week ? '#38bdf8' : 'transparent', 
+                                  borderColor: ganttViewMode === ViewMode.Week ? '#38bdf8' : 'transparent',
+                                  borderRadius: '8px'
+                                }}
+                              >
+                                Тиждень
+                              </Button>
+                              <Button 
+                                size="small"
+                                variant={ganttViewMode === ViewMode.Month ? "contained" : "outlined"} 
+                                onClick={() => setGanttViewMode(ViewMode.Month)}
+                                style={{ 
+                                  fontSize: '11px', 
+                                  fontWeight: 700, 
+                                  color: ganttViewMode === ViewMode.Month ? '#0a0f16' : '#38bdf8', 
+                                  background: ganttViewMode === ViewMode.Month ? '#38bdf8' : 'transparent', 
+                                  borderColor: ganttViewMode === ViewMode.Month ? '#38bdf8' : 'transparent',
+                                  borderRadius: '8px'
+                                }}
+                              >
+                                Місяць
+                              </Button>
+                            </div>
 
+                            <Button variant="outlined" onClick={() => handlePrintOnlyGantt(currentCalendarPlan?._id)} style={{ color: '#38bdf8', borderColor: '#38bdf8', fontWeight: 700 }}>
+                              <Printer size={16} style={{ marginRight: '8px' }} /> Друк діаграми
+                            </Button>
+                          </div>
+                          
+                          {/* КОМПОНЕНТ ДІАГРАМИ З ДИНАМІЧНИМИ ПАРАМЕТРАМИ */}
+                          <Gantt 
+                            tasks={ganttTasks} 
+                            viewMode={ganttViewMode} 
+                            locale="ukr" 
+                            listCellWidth="230px" 
+                            rowHeight={40}                // компактні рядки
+                            headerHeight={40}
+                            columnWidth={ganttColumnWidth} 
+                            TaskListHeader={CustomTaskListHeader} 
+                            TaskListTable={CustomTaskListTable} 
+                            TooltipContent={CustomTooltip} 
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '40px' }}><Info size={40} style={{ marginBottom: '10px' }} /><br />У цього об'єкта ще немає сформованих завдань із датами.</div>
+                      )
+                    ) : null}
+                  </>
+                )}
     {/* РЕЖИМ 4: ЗВІТ З БУДІВНИЦТВА */}
     {calendarViewMode === 'report' && (
       <div style={{ animation: 'fadeIn 0.5s ease' }}>
